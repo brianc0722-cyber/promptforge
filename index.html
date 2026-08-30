@@ -50,6 +50,7 @@
 </head>
 <body class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
 
+  <!-- HEADER -->
   <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
     <div class="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-6">
       <button type="button" onclick="showView('home')" class="group flex items-center gap-3 text-left">
@@ -101,7 +102,7 @@
     </div>
   </div>
 
-  <!-- COACH -->
+  <!-- COACH DRAWER -->
   <div id="coach-overlay" onclick="closeCoach()" class="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]"></div>
   <aside id="coach-drawer" class="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[430px] flex-col border-l border-slate-200 bg-white shadow-2xl">
     <div class="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-sky-50 p-5">
@@ -134,7 +135,6 @@
   </aside>
 
   <main>
-
     <!-- HOME -->
     <section id="view-home" class="view active landing-ambient">
       <div class="mx-auto max-w-5xl px-4 pb-16 pt-20 text-center sm:pt-28">
@@ -228,15 +228,6 @@
             <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg>
             Ask the Coach
           </button>
-        </div>
-
-        <!-- Saved profiles -->
-        <div class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div class="flex flex-wrap items-center gap-2">
-            <input id="profile-name" type="text" placeholder="Save these answers as..." class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" />
-            <button type="button" onclick="saveProfile()" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800">Save profile</button>
-          </div>
-          <div id="profile-chips" class="mt-3 flex flex-wrap gap-2"></div>
         </div>
 
         <div class="mb-8">
@@ -484,6 +475,18 @@
     var coachContextName = "landing";
     var coachHistory = [];
 
+    // GLOBAL HUMAN PERSONA PROMPT - Applies to ALL AI interactions
+    const HUMAN_PERSONA = "You are PromptForge's Senior AI Mentor. You are witty, empathetic, and highly skilled. Never sound robotic or generic. Use analogies, vary your sentence structure, and adapt your tone to the user's context. If a user asks the same question twice, give a completely different answer with a fresh perspective. Be encouraging but direct. Act like a senior colleague mentoring a junior developer.";
+
+    // Helper function to build messages with the human persona
+    function buildMessageWithPersona(userText, context = "") {
+      const fullPrompt = `${HUMAN_PERSONA}\n\nCurrent Context: ${context || 'General Conversation'}\n\nUser Question/Task: ${userText}`;
+      return [
+        { role: "system", content: "Answer based on the persona and context provided." },
+        { role: "user", content: fullPrompt }
+      ];
+    }
+
     var coachContexts = {
       landing: { label: "Product overview", chips: ["What is a prompt?", "Which AI is best for coding?", "Can I use this for marketing?"] },
       wizard: { label: "Wizard guidance", chips: ["Help me describe my idea", "What makes a good prompt?", "How detailed should I be?"] },
@@ -547,14 +550,15 @@
       document.getElementById("key-status").textContent = has ? "Connected. Ready to generate." : "Not connected yet.";
     }
 
-    /* ---------- AI CALL ---------- */
+    /* ---------- AI CALL (UPDATED TEMP TO 0.9) ---------- */
     function callAI(messages, extra) {
       var key = getKey();
       if (!key) {
         openSettings();
         return Promise.reject(new Error("Connect your OpenAI key first."));
       }
-      var body = { model: "gpt-4o-mini", temperature: 0.8, messages: messages };
+      // UPDATED TEMPERATURE FOR MAX CREATIVITY
+      var body = { model: "gpt-4o-mini", temperature: 0.9, messages: messages };
       if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
       return fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -603,1034 +607,342 @@
     }
 
     function selectAI(button, ai) {
-  selectedAI = ai;
-
-  document.querySelectorAll(".ai-option").forEach(function (item) {
-    item.className =
-      "ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50";
-  });
-
-  button.className =
-    "ai-option rounded-full border-2 border-indigo-600 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700";
-
-  var resultLabel = document.getElementById("results-ai-label");
-
-  if (resultLabel) {
-    resultLabel.textContent =
-      "Three prompt styles optimized for " + selectedAI + ".";
-  }
-}
-
-var lastResults = null;
-
-function parseGeneratedResponse(content) {
-  var cleaned = String(content || "").trim();
-
-  cleaned = cleaned
-    .replace(/^```json\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/\s*```$/i, "")
-    .trim();
-
-  var firstBrace = cleaned.indexOf("{");
-  var lastBrace = cleaned.lastIndexOf("}");
-
-  if (firstBrace !== -1 && lastBrace !== -1) {
-    cleaned = cleaned.slice(firstBrace, lastBrace + 1);
-  }
-
-  var parsed = JSON.parse(cleaned);
-
-  if (!parsed || !Array.isArray(parsed.variants)) {
-    throw new Error("The AI response did not contain prompt variants.");
-  }
-
-  if (parsed.variants.length < 3) {
-    throw new Error("The AI returned fewer than three prompt variants.");
-  }
-
-  return {
-    variants: parsed.variants.slice(0, 3).map(function (variant, index) {
-      var effectiveness =
-        variant && typeof variant.effectiveness === "object"
-          ? variant.effectiveness
-          : {};
-
-      var technicalDetails = Array.isArray(effectiveness.technical_details)
-        ? effectiveness.technical_details
-        : [];
-
-      return {
-        label:
-          typeof variant.label === "string"
-            ? variant.label
-            : ["Essential", "Comprehensive", "Structured"][index],
-
-        target_ai:
-          typeof variant.target_ai === "string"
-            ? variant.target_ai
-            : selectedAI,
-
-        prompt_text:
-          typeof variant.prompt_text === "string"
-            ? variant.prompt_text
-            : "",
-
-        effectiveness: {
-          plain_language:
-            typeof effectiveness.plain_language === "string"
-              ? effectiveness.plain_language
-              : "This prompt provides clearer instructions and useful context.",
-
-          technical_details: technicalDetails.map(function (detail) {
-            return String(detail);
-          })
-        }
-      };
-    })
-  };
-}
-
-function renderResults(result) {
-  lastResults = result;
-
-  var resultLabel = document.getElementById("results-ai-label");
-
-  if (resultLabel) {
-    resultLabel.textContent =
-      "Three prompt styles optimized for " + selectedAI + ".";
-  }
-
-  result.variants.forEach(function (variant, index) {
-    var promptElement = document.getElementById("prompt-" + index);
-    var breakdownElement = document.getElementById("breakdown-" + index);
-
-    if (promptElement) {
-      promptElement.textContent =
-        variant.prompt_text || "No prompt was returned.";
+      selectedAI = ai;
+      document.querySelectorAll(".ai-option").forEach(function (item) {
+        item.className = "ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50";
+      });
+      button.className = "ai-option rounded-full border-2 border-indigo-600 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700";
+      document.getElementById("results-ai-label").textContent = "Three prompt styles optimized for " + selectedAI + ".";
     }
 
-    if (breakdownElement) {
-      var plainLanguage =
-        variant.effectiveness &&
-        typeof variant.effectiveness.plain_language === "string"
-          ? variant.effectiveness.plain_language
-          : "This prompt adds clearer instructions and useful context.";
+    function generateFromWizard() {
+      var desc = document.getElementById("project-description").value.trim();
+      var audience = document.getElementById("audience").value.trim();
+      var goal = document.getElementById("goal").value.trim();
+      var stack = document.getElementById("tech-stack").value.trim();
 
-      var technicalDetails =
-        variant.effectiveness &&
-        Array.isArray(variant.effectiveness.technical_details)
-          ? variant.effectiveness.technical_details
-          : [];
+      if (!desc) { showToast("Please describe your project first."); return; }
 
-      var detailMarkup = technicalDetails
-        .map(function (detail) {
-          return "<li>" + escapeHTML(detail) + "</li>";
+      setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
+
+      var wizardSystemMsg = "You are PromptForge's Senior AI Mentor. Generate exactly THREE distinct prompt variants (Essential, Comprehensive, Structured) for the user's request. Each variant must be tailored to " + selectedAI + ". Return ONLY valid JSON matching the schema provided below. Do not add markdown formatting. Schema: { \"variants\": [ {\"label\":\"Essential\", \"target_ai\":\"CHATGPT\", \"prompt_text\":\"...\", \"effectiveness\":{\"plain_language\":\"...\", \"technical_details\":[\"...\"]} }, ... ] }";
+      
+      var wizardUserMsg = "Project: " + desc + ". Target Audience: " + (audience || "Not specified") + ". Goal: " + (goal || "Not specified") + ". Tech Stack: " + (stack || "Not specified") + ". Please generate 3 variants.";
+
+      callAI(buildMessageWithPersona(wizardUserMsg, "Wizard Generation"))
+        .then(function(content) {
+          try {
+            // Try to parse if the AI returned JSON directly, otherwise try to extract
+            let parsed;
+            if(content.includes("```json")) {
+               content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+            }
+            parsed = JSON.parse(content);
+            
+            if(!parsed.variants || parsed.variants.length !== 3) {
+               throw new Error("Invalid JSON structure from AI");
+            }
+
+            renderResults(parsed.variants);
+            showView("results");
+            showToast("Three prompts generated successfully.");
+          } catch(e) {
+            console.error("Parse error:", e);
+            alert("The AI generated text instead of JSON. Please try regenerating.");
+          } finally {
+            setLoading(document.getElementById("wizard-next"), false, "", "Generate prompts");
+          }
         })
-        .join("");
-
-      breakdownElement.innerHTML =
-        '<p class="text-sm font-bold text-indigo-950">' +
-        escapeHTML(plainLanguage) +
-        "</p>" +
-        '<ul class="mt-3 list-disc space-y-1 pl-5 text-xs leading-relaxed text-indigo-900">' +
-        detailMarkup +
-        "</ul>";
-
-      breakdownElement.classList.add("hidden");
+        .catch(function(err) {
+          console.error(err);
+          showToast("Generation failed: " + err.message);
+          setLoading(document.getElementById("wizard-next"), false, "", "Generate prompts");
+        });
     }
-  });
-}
 
-function generateFromWizard() {
-  var description = document
-    .getElementById("project-description")
-    .value.trim();
-
-  var audience = document.getElementById("audience").value.trim();
-  var goal = document.getElementById("goal").value.trim();
-  var techStack = document.getElementById("tech-stack").value.trim();
-
-  if (description.length < 10) {
-    showToast("Please describe your project in a little more detail.");
-    return;
-  }
-
-  if (!audience) {
-    showToast("Please enter a target audience.");
-    return;
-  }
-
-  if (!goal) {
-    showToast("Please enter the primary goal.");
-    return;
-  }
-
-  if (!getKey()) {
-    showToast("Connect your OpenAI key before generating.");
-    openSettings();
-    return;
-  }
-
-  var button = document.getElementById("wizard-next");
-
-  setLoading(button, true, "Generating prompts...", "Generate prompts");
-
-  var requestData = {
-    projectDescription: description,
-    targetAudience: audience,
-    primaryGoal: goal,
-    targetAI: selectedAI,
-    technologyPreferences: techStack || "None specified"
-  };
-
-  var systemMessage =
-    "You are an expert prompt engineer. Create high-quality prompts for beginners. Return only valid JSON. Do not include markdown code fences or text outside the JSON object.";
-
-  var userMessage =
-    "Generate exactly three prompt variants for the user's request. " +
-    "The labels must be Essential, Comprehensive, and Structured. " +
-    "Each variant must include label, target_ai, prompt_text, and effectiveness. " +
-    "The effectiveness object must include plain_language and technical_details. " +
-    "The plain_language explanation must be beginner-friendly. " +
-    "The technical_details field must contain three or four prompt-engineering techniques. " +
-    "Adapt the prompts to the selected AI. " +
-    "User request: " +
-    JSON.stringify(requestData);
-
-  callAI(
-    [
-      {
-        role: "system",
-        content: systemMessage
-      },
-      {
-        role: "user",
-        content: userMessage
-      }
-    ],
-    {
-      response_format: {
-        type: "json_object"
-      }
-    }
-  )
-    .then(function (content) {
-      var result = parseGeneratedResponse(content);
-
-      renderResults(result);
-      showView("results");
-      showToast("Three prompts generated successfully.");
-    })
-    .catch(function (error) {
-      showToast(
-        error && error.message
-          ? error.message
-          : "Prompt generation failed. Please try again."
-      );
-    })
-    .finally(function () {
-      setLoading(
-        button,
-        false,
-        "Generating prompts...",
-        "Generate prompts"
-      );
-    });
-}
-
-function improveReal() {
-  var input = document.getElementById("existing-prompt");
-  var promptText = input.value.trim();
-
-  if (promptText.length < 10) {
-    showToast("Paste an existing prompt that is at least 10 characters long.");
-    return;
-  }
-
-  if (!getKey()) {
-    showToast("Connect your OpenAI key before improving a prompt.");
-    openSettings();
-    return;
-  }
-
-  var selectedIssues = [];
-
-  document.querySelectorAll(".issue-pill").forEach(function (pill) {
-    if (pill.classList.contains("bg-indigo-600")) {
-      selectedIssues.push(pill.textContent.trim());
-    }
-  });
-
-  var button = document.getElementById("improve-btn");
-
-  setLoading(
-    button,
-    true,
-    "Improving prompt...",
-    "Generate improved prompts"
-  );
-
-   var systemMessage = "You are PromptForge Coach, a witty, empathetic, and highly skilled prompt engineer. Avoid corporate jargon and robotic phrasing. Use varied sentence structures, occasional analogies, and a conversational tone. Be concise but warm. Never repeat yourself. If the user is stuck, offer encouragement. Act like a senior mentor helping a junior colleague.";
-
-  var userMessage =
-    "Improve this existing prompt and return exactly three variants labeled Essential, Comprehensive, and Structured. " +
-    "Each variant must include label, target_ai, prompt_text, and effectiveness. " +
-    "The effectiveness object must include plain_language and technical_details. " +
-    "Pain points selected by the user: " +
-    JSON.stringify(selectedIssues) +
-    ". Target AI: " +
-    selectedAI +
-    ". Existing prompt: " +
-    promptText;
-
-  callAI(
-    [
-      {
-        role: "system",
-        content: systemMessage
-      },
-      {
-        role: "user",
-        content: userMessage
-      }
-    ],
-    {
-      response_format: {
-        type: "json_object"
-      }
-    }
-  )
-    .then(function (content) {
-      var result = parseGeneratedResponse(content);
-
-      renderResults(result);
-      showView("results");
-      showToast("Improved prompts generated successfully.");
-    })
-    .catch(function (error) {
-      showToast(
-        error && error.message
-          ? error.message
-          : "Prompt improvement failed. Please try again."
-      );
-    })
-    .finally(function () {
-      setLoading(
-        button,
-        false,
-        "Improving prompt...",
-        "Generate improved prompts"
-      );
-    });
-}
-
-function generateImprovedPrompts() {
-  improveReal();
-}
-
-function refinePrompt(index) {
-  var button = document.getElementById("refine-btn-" + index);
-  var promptElement = document.getElementById("prompt-" + index);
-
-  if (!promptElement) {
-    showToast("The prompt could not be found.");
-    return;
-  }
-
-  if (!getKey()) {
-    showToast("Connect your OpenAI key before refining.");
-    openSettings();
-    return;
-  }
-
-  var currentPrompt = promptElement.textContent.trim();
-
-  if (currentPrompt.length < 10) {
-    showToast("There is not enough prompt text to refine.");
-    return;
-  }
-
-  setLoading(button, true, "Refining...", "Refine this version");
-
-  callAI([
-    {
-      role: "system",
-      content:
-        "You are an expert prompt engineer. Improve the supplied prompt while preserving its original purpose. Return only the revised prompt text, with no explanation."
-    },
-    {
-      role: "user",
-      content:
-        "Refine this prompt for " +
-        selectedAI +
-        ". Make it clearer, more reliable, specific, and reusable:\n\n" +
-        currentPrompt
-    }
-  ])
-    .then(function (refinedPrompt) {
-      var revisedText = String(refinedPrompt).trim();
-
-      promptElement.textContent = revisedText;
-
-      if (lastResults && lastResults.variants[index]) {
-        lastResults.variants[index].prompt_text = revisedText;
-      }
-
-      showToast("This prompt was refined successfully.");
-    })
-    .catch(function (error) {
-      showToast(
-        error && error.message
-          ? error.message
-          : "Refinement failed. Please try again."
-      );
-    })
-    .finally(function () {
-      setLoading(button, false, "Refining...", "Refine this version");
-    });
-}
-
-function toggleBreakdown(value) {
-  var id =
-    typeof value === "number"
-      ? "breakdown-" + value
-      : String(value);
-
-  var element = document.getElementById(id);
-
-  if (element) {
-    element.classList.toggle("hidden");
-  }
-}
-
-function copyPrompt(index) {
-  var promptElement = document.getElementById("prompt-" + index);
-
-  if (!promptElement) {
-    showToast("The prompt could not be found.");
-    return;
-  }
-
-  var text = promptElement.textContent.trim();
-
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard
-      .writeText(text)
-      .then(function () {
-        showToast("Prompt copied to your clipboard.");
-      })
-      .catch(function () {
-        fallbackCopy(text);
-      });
-  } else {
-    fallbackCopy(text);
-  }
-}
-
-function fallbackCopy(text) {
-  var temporary = document.createElement("textarea");
-
-  temporary.value = text;
-  temporary.style.position = "fixed";
-  temporary.style.left = "-9999px";
-
-  document.body.appendChild(temporary);
-  temporary.focus();
-  temporary.select();
-
-  try {
-    document.execCommand("copy");
-    showToast("Prompt copied to your clipboard.");
-  } catch (error) {
-    showToast("Copy failed. Select the prompt and press Ctrl+C.");
-  }
-
-  document.body.removeChild(temporary);
-}
-
-function togglePill(button) {
-  button.classList.toggle("bg-indigo-600");
-  button.classList.toggle("text-white");
-  button.classList.toggle("border-indigo-600");
-  button.classList.toggle("bg-white");
-  button.classList.toggle("text-slate-600");
-  button.classList.toggle("border-slate-200");
-}
-
-function sendResultsToSandbox() {
-  for (var index = 0; index < 3; index += 1) {
-    var source = document.getElementById("prompt-" + index);
-    var destination = document.getElementById("sandbox-prompt-" + index);
-
-    if (source && destination) {
-      destination.value = source.textContent.trim();
-    }
-  }
-
-  showView("sandbox");
-  showToast("Your prompts were sent to the Sandbox.");
-}
-
-function runSandbox() {
-  var message = document
-    .getElementById("sandbox-message")
-    .value.trim();
-
-  if (!message) {
-    showToast("Enter a test message first.");
-    return;
-  }
-
-  if (!getKey()) {
-    showToast("Connect your OpenAI key before running the Sandbox.");
-    openSettings();
-    return;
-  }
-
-  var prompts = [];
-
-  for (var index = 0; index < 3; index += 1) {
-    var promptInput = document.getElementById("sandbox-prompt-" + index);
-
-    if (promptInput && promptInput.value.trim()) {
-      prompts.push({
-        index: index,
-        text: promptInput.value.trim()
-      });
-    }
-  }
-
-  if (prompts.length === 0) {
-    showToast("Add at least one prompt before comparing outputs.");
-    return;
-  }
-
-  var button = document.getElementById("sandbox-btn");
-
-  setLoading(button, true, "Comparing...", "Compare outputs");
-
-  var requests = prompts.map(function (item) {
-    return callAI([
-      {
-        role: "system",
-        content: item.text
-      },
-      {
-        role: "user",
-        content: message
-      }
-    ])
-      .then(function (output) {
-        return {
-          index: item.index,
-          output: String(output).trim()
-        };
-      })
-      .catch(function (error) {
-        return {
-          index: item.index,
-          output:
-            "This prompt could not be run: " +
-            (error && error.message
-              ? error.message
-              : "Unknown error.")
-        };
-      });
-  });
-
-  Promise.all(requests)
-    .then(function (results) {
-      for (var outputIndex = 0; outputIndex < 3; outputIndex += 1) {
-        var outputElement = document.getElementById(
-          "sb-out-" + outputIndex
-        );
-
-        if (outputElement) {
-          var matching = results.find(function (result) {
-            return result.index === outputIndex;
+    function renderResults(variants) {
+      for (var i = 0; i < 3; i++) {
+        if (!variants[i]) continue;
+        document.getElementById("prompt-" + i).textContent = variants[i].prompt_text;
+        
+        var eff = variants[i].effectiveness || {};
+        var effHtml = "<p class='font-medium'>" + esc(eff.plain_language) + "</p>";
+        if(eff.technical_details && eff.technical_details.length > 0) {
+          effHtml += "<details class='mt-2'><summary class='cursor-pointer font-medium'>Technical details</summary><ul class='list-disc pl-5 mt-2 space-y-1'>";
+          eff.technical_details.forEach(function(d) {
+            effHtml += "<li>" + esc(d) + "</li>";
           });
+          effHtml += "</ul></details>";
+        }
+        document.getElementById("breakdown-" + i).innerHTML = effHtml;
+      }
+    }
 
-          outputElement.textContent = matching
-            ? matching.output
-            : "No prompt supplied.";
+    function copyPrompt(index) {
+      var text = document.getElementById("prompt-" + index).textContent;
+      navigator.clipboard.writeText(text)
+        .then(function() { showToast("Prompt copied!"); })
+        .catch(function() { showToast("Select the prompt and press Ctrl+C"); });
+    }
+
+    function toggleBreakdown(index) {
+      var el = document.getElementById("breakdown-" + index);
+      el.classList.toggle("hidden");
+    }
+
+    function refinePrompt(index) {
+      var btn = document.getElementById("refine-btn-" + index);
+      var promptEl = document.getElementById("prompt-" + index);
+      var originalText = btn.innerHTML;
+      
+      setLoading(btn, true, "Refining...", "Refined!");
+      
+      var currentPrompt = promptEl.textContent;
+      var refineSystemMsg = "You are PromptForge's Senior AI Mentor. Refine the following prompt to make it clearer, more specific, and more effective for " + selectedAI + ". Keep the original intent but improve the structure and constraints. Return ONLY the refined prompt text.";
+      
+      callAI(buildMessageWithPersona("Refine this prompt: " + currentPrompt, "Refinement Task"))
+        .then(function(content) {
+          promptEl.textContent = content;
+          btn.innerHTML = "<svg class='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.8'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'/></svg> Refined!";
+          btn.classList.remove("bg-slate-900", "hover:bg-slate-800");
+          btn.classList.add("bg-green-600", "hover:bg-green-700");
+          
+          setTimeout(function() {
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.classList.remove("opacity-70", "cursor-not-allowed", "bg-green-600", "hover:bg-green-700");
+            btn.classList.add("bg-slate-900", "hover:bg-slate-800");
+          }, 2500);
+        })
+        .catch(function(err) {
+          alert("Refinement failed: " + err.message);
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+          btn.classList.remove("opacity-70", "cursor-not-allowed");
+        });
+    }
+
+    /* ---------- IMPROVE PAGE ---------- */
+    function improveReal() {
+      var promptText = document.getElementById("existing-prompt").value.trim();
+      if(!promptText) { showToast("Please paste a prompt first."); return; }
+
+      var issues = [];
+      document.querySelectorAll('.issue-pill').forEach(function(pill) {
+        if(pill.classList.contains("bg-indigo-600")) issues.push(pill.textContent);
+      });
+
+      setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
+
+      var systemMsg = "You are PromptForge's Senior AI Mentor. Analyze the user's existing prompt and the pain points they listed. Generate exactly THREE improved variants labeled Essential, Comprehensive, and Structured. Each variant must include label, target_ai, prompt_text, and effectiveness. Return ONLY valid JSON. Pain points: " + issues.join(", ");
+
+      var userMsg = "Target AI: " + selectedAI + ". Existing Prompt: " + promptText;
+
+      callAI(buildMessageWithPersona(userMsg, "Improvement Task"))
+        .then(function(content) {
+          try {
+             if(content.includes("```json")) content = content.replace(/```json/g, '').replace(/```/g, '').trim();
+             var parsed = JSON.parse(content);
+             if(!parsed.variants || parsed.variants.length !== 3) throw new Error("Invalid JSON");
+             
+             renderResults(parsed.variants);
+             showView("results");
+             showToast("Improved prompts generated!");
+          } catch(e) {
+             console.error(e);
+             alert("Improvement failed to return JSON.");
+          } finally {
+            setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
+          }
+        })
+        .catch(function(err) {
+          showToast("Improvement failed: " + err.message);
+          setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
+        });
+    }
+
+    function togglePill(btn) {
+      btn.classList.toggle("bg-indigo-600");
+      btn.classList.toggle("text-white");
+      btn.classList.toggle("border-indigo-600");
+      btn.classList.toggle("bg-white");
+      btn.classList.toggle("text-slate-600");
+      btn.classList.toggle("border-slate-200");
+    }
+
+    /* ---------- SANDBOX ---------- */
+    function sendResultsToSandbox() {
+      for(var i=0; i<3; i++) {
+        var source = document.getElementById("prompt-" + i).textContent;
+        if(source) document.getElementById("sandbox-prompt-" + i).value = source;
+      }
+      showView("sandbox");
+      showToast("Prompts sent to Sandbox!");
+    }
+
+    function runSandbox() {
+      var msg = document.getElementById("sandbox-message").value.trim();
+      if(!msg) { showToast("Enter a test message first."); return; }
+      
+      var prompts = [];
+      for(var i=0; i<3; i++) {
+        prompts.push(document.getElementById("sandbox-prompt-" + i).value.trim());
+      }
+      if(prompts.every(function(p) { return p === ""; })) { showToast("Add at least one prompt."); return; }
+
+      setLoading(document.getElementById("sandbox-btn"), true, "Comparing...", "Compare outputs");
+      
+      // Run comparisons in parallel
+      var results = [null, null, null];
+      var completed = 0;
+
+      prompts.forEach(function(promptText, idx) {
+        if(!promptText) {
+           results[idx] = { output: "(No prompt entered)", error: null };
+           completed++;
+           checkCompletion();
+           return;
+        }
+
+        var sandboxSystemMsg = "You are PromptForge's Senior AI Mentor. Execute the following prompt exactly as written for the test message. Return ONLY the result/output of the prompt execution. Do not explain yourself.";
+        
+        callAI(buildMessageWithPersona("Execute this prompt for the test message: '" + msg + "'.\n\nPrompt to execute:\n" + promptText, "Sandbox Execution"))
+          .then(function(content) {
+            results[idx] = { output: content.substring(0, 400) + (content.length > 400 ? "..." : ""), error: null };
+            completed++;
+            checkCompletion();
+          })
+          .catch(function(err) {
+            results[idx] = { output: "", error: "Error: " + err.message };
+            completed++;
+            checkCompletion();
+          });
+      });
+
+      function checkCompletion() {
+        if(completed >= 3) {
+          document.getElementById("sb-out-0").textContent = results[0] ? (results[0].error || results[0].output) : "—";
+          document.getElementById("sb-out-1").textContent = results[1] ? (results[1].error || results[1].output) : "—";
+          document.getElementById("sb-out-2").textContent = results[2] ? (results[2].error || results[2].output) : "—";
+          
+          document.getElementById("sandbox-results").classList.remove("hidden");
+          setLoading(document.getElementById("sandbox-btn"), false, "", "Compare outputs");
         }
       }
+    }
 
-      document
-        .getElementById("sandbox-results")
-        .classList.remove("hidden");
+    /* ---------- APP TOOLKIT DROPDOWN ---------- */
+    function toggleAppsDropdown() {
+      var panel = document.getElementById("apps-dropdown-panel");
+      var chevron = document.getElementById("apps-chevron");
+      panel.classList.toggle("hidden");
+      chevron.classList.toggle("rotate-180");
+    }
 
-      showToast("Sandbox comparison complete.");
-    })
-    .finally(function () {
-      setLoading(button, false, "Comparing...", "Compare outputs");
-    });
-}
+    function openConnectedApp(appName) {
+      var urls = {
+        "NaturalWrite": "https://naturalwrite-nu.vercel.app/",
+        "Summa": "https://www.contentsummarize.com/"
+      };
+      var url = urls[appName];
+      if(url) window.open(url, "_blank");
+    }
 
-var coachContexts = {
-  landing: {
-    label: "Product overview",
-    greeting:
-      "Hi! I am your Prompt Coach. Ask me about prompts, AI tools, or where to begin.",
-    chips: [
-      "What is a prompt?",
-      "Which AI is best for coding?",
-      "Can I use this for marketing?"
-    ]
-  },
+    /* ---------- COACH ---------- */
+    function openCoach(contextName) {
+      coachContextName = contextName;
+      var context = coachContexts[contextName] || coachContexts.landing;
+      
+      document.getElementById("coach-context-label").textContent = context.label;
+      document.getElementById("coach-messages").innerHTML = ''; // Clear old messages? Or keep history? Let's keep for now but maybe clear if needed
+      
+      // Add greeting if empty
+      if(document.getElementById("coach-messages").children.length === 0) {
+         addCoachMessage(context.greeting || "Hi! How can I help you build better prompts today?", false);
+      }
+      
+      renderCoachChips(context.chips);
+      document.getElementById("coach-drawer").classList.add("open");
+      document.getElementById("coach-overlay").classList.add("open");
+      setTimeout(function() { document.getElementById("coach-input").focus(); }, 300);
+    }
 
-  wizard: {
-    label: "Wizard guidance",
-    greeting:
-      "Tell me what you are trying to create and I will help you describe it clearly.",
-    chips: [
-      "Help me describe my idea",
-      "What makes a good prompt?",
-      "How detailed should I be?"
-    ]
-  },
+    function closeCoach() {
+      document.getElementById("coach-drawer").classList.remove("open");
+      document.getElementById("coach-overlay").classList.remove("open");
+    }
 
-  step1: {
-    label: "Step 1: Project description",
-    greeting:
-      "Describe what you want AI to help you create. You can use plain language.",
-    chips: [
-      "Give me an example",
-      "Help me describe my idea",
-      "How detailed should I be?"
-    ]
-  },
+    function renderCoachChips(chips) {
+      var container = document.getElementById("coach-chips");
+      container.innerHTML = "";
+      chips.forEach(function(chip) {
+        var btn = document.createElement("button");
+        btn.type = "button";
+        btn.textContent = chip;
+        btn.className = "rounded-full border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100";
+        btn.onclick = function() { sendCoachQuestion(chip); };
+        container.appendChild(btn);
+      });
+    }
 
-  step2: {
-    label: "Step 2: Audience and goal",
-    greeting:
-      "Defining the audience and goal helps the AI create a more relevant response.",
-    chips: [
-      "What is a target audience?",
-      "Help me define a goal",
-      "Give me an example"
-    ]
-  },
+    function addCoachMessage(message, isUser) {
+      var container = document.getElementById("coach-messages");
+      var row = document.createElement("div");
+      row.className = isUser ? "flex items-start justify-end gap-2.5" : "flex items-start gap-2.5";
+      
+      var avatar = isUser 
+        ? '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">YOU</div>' 
+        : '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-[10px] font-bold text-white">AI</div>';
+      
+      var bubble = isUser 
+        ? '<div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-3 text-sm leading-relaxed text-white">' + esc(message) + "</div>" 
+        : '<div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700">' + esc(message) + "</div>";
+      
+      row.innerHTML = isUser ? bubble + avatar : avatar + bubble;
+      container.appendChild(row);
+      container.scrollTop = container.scrollHeight;
+    }
 
-  step3: {
-    label: "Step 3: AI preferences",
-    greeting:
-      "I can help you choose between ChatGPT, Claude, Gemini, Copilot, or Universal.",
-    chips: [
-      "ChatGPT vs Claude",
-      "What is a tech stack?",
-      "Which AI is best for writing?"
-    ]
-  },
+    function sendCoachQuestion(question) {
+      addCoachMessage(question, true);
+      
+      var systemMsg = "You are PromptForge's Senior AI Mentor. Answer the user's question about prompts concisely and wittily. Context: " + coachContextName;
+      
+      callAI(buildMessageWithPersona(question, "Coach Query"))
+        .then(function(answer) {
+          addCoachMessage(answer, false);
+        })
+        .catch(function(err) {
+          addCoachMessage("Sorry, I couldn't connect to the AI right now. Please try again.", false);
+        });
+    }
 
-  improve: {
-    label: "Prompt improvement",
-    greeting:
-      "Paste your current prompt and I can help identify what needs to be clearer or more specific.",
-    chips: [
-      "Why are my outputs inconsistent?",
-      "How can I add constraints?",
-      "What makes a prompt too vague?"
-    ]
-  },
+    function sendCoachInput() {
+      var input = document.getElementById("coach-input");
+      var q = input.value.trim();
+      if(!q) return;
+      input.value = "";
+      sendCoachQuestion(q);
+    }
 
-  sandbox: {
-    label: "Prompt sandbox",
-    greeting:
-      "Use the same test message with different prompts so you can compare their results fairly.",
-    chips: [
-      "How should I compare prompts?",
-      "What test message should I use?",
-      "Why test multiple variants?"
-    ]
-  }
-};
-
-var coachResponses = {
-  "What is a prompt?":
-    "A prompt is the instruction you give an AI. Clear tasks, useful context, constraints, and an expected format usually produce better results.",
-
-  "Which AI is best for coding?":
-    "ChatGPT is a strong general-purpose choice. Claude is particularly useful for long codebases and detailed reasoning. The best choice depends on your project and workflow.",
-
-  "Can I use this for marketing?":
-    "Yes. You can use PromptForge for marketing plans, email campaigns, social media posts, SEO content, advertisements, and customer research.",
-
-  "What makes a good prompt?":
-    "A good prompt explains the task, provides relevant context, identifies the audience, states important rules, and describes what the final answer should look like.",
-
-  "How detailed should I be?":
-    "Include the details that affect the result: your goal, audience, important limitations, tone, examples, and desired output format.",
-
-  "Give me an example":
-    "Try this: I want AI to create a beginner-friendly marketing plan for a local dog-walking business, including social media ideas and a monthly content calendar.",
-
-  "What is a target audience?":
-    "Your target audience is the person who will use or read the result, such as a beginner developer, small-business owner, student, or marketing team.",
-
-  "How can I add constraints?":
-    "Add rules such as: use plain English, stay under 500 words, return JSON only, avoid external APIs, or include three practical examples.",
-
-  "Why are my outputs inconsistent?":
-    "Inconsistent results often happen when the prompt leaves important choices open. Add a clear role, goal, constraints, examples, and output format."
-};
-
-function escapeHTML(value) {
-  var element = document.createElement("div");
-
-  element.textContent =
-    value === null || value === undefined
-      ? ""
-      : String(value);
-
-  return element.innerHTML;
-}
-
-function renderCoachChips(chips) {
-  var container = document.getElementById("coach-chips");
-
-  if (!container) {
-    return;
-  }
-
-  container.innerHTML = "";
-
-  chips.forEach(function (chip) {
-    var button = document.createElement("button");
-
-    button.type = "button";
-    button.textContent = chip;
-    button.className =
-      "rounded-full border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100";
-
-    button.addEventListener("click", function () {
-      sendCoachQuestion(chip);
+    document.getElementById("coach-input").addEventListener("keydown", function(e) {
+      if(e.key === "Enter") { e.preventDefault(); sendCoachInput(); }
     });
 
-    container.appendChild(button);
-  });
-}
-
-function addCoachMessage(message, isUser) {
-  var messages = document.getElementById("coach-messages");
-
-  if (!messages) {
-    return;
-  }
-
-  var row = document.createElement("div");
-
-  row.className = isUser
-    ? "flex items-start justify-end gap-2.5"
-    : "flex items-start gap-2.5";
-
-  var avatar = isUser
-    ? '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">YOU</div>'
-    : '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-[10px] font-bold text-white">AI</div>';
-
-  var bubble = isUser
-    ? '<div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-3 text-sm leading-relaxed text-white">' +
-      escapeHTML(message) +
-      "</div>"
-    : '<div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700">' +
-      escapeHTML(message) +
-      "</div>";
-
-  row.innerHTML = isUser ? bubble + avatar : avatar + bubble;
-
-  messages.appendChild(row);
-  messages.scrollTop = messages.scrollHeight;
-}
-
-function openCoach(contextName) {
-  var context = coachContexts[contextName] || coachContexts.landing;
-  var messages = document.getElementById("coach-messages");
-
-  if (messages) {
-    messages.innerHTML = "";
-  }
-
-  document.getElementById("coach-context-label").textContent =
-    context.label;
-
-  addCoachMessage(context.greeting, false);
-  renderCoachChips(context.chips);
-
-  document.getElementById("coach-drawer").classList.add("open");
-  document.getElementById("coach-overlay").classList.add("open");
-
-  setTimeout(function () {
-    document.getElementById("coach-input").focus();
-  }, 300);
-}
-
-function closeCoach() {
-  document.getElementById("coach-drawer").classList.remove("open");
-  document.getElementById("coach-overlay").classList.remove("open");
-}
-
-function getCoachFallback(question) {
-  var normalized = question.trim().toLowerCase();
-
-  for (var key in coachResponses) {
-    if (
-      normalized.includes(key.toLowerCase()) ||
-      key.toLowerCase().includes(normalized)
-    ) {
-      return coachResponses[key];
-    }
-  }
-
-  return "A useful prompt usually explains the role, task, context, constraints, audience, and desired output format.";
-}
-
-function sendCoachQuestion(question) {
-  addCoachMessage(question, true);
-
-  if (!getKey()) {
-    addCoachMessage(
-      "Connect your OpenAI key using the Connect AI button, then ask me again.",
-      false
-    );
-
-    openSettings();
-    return;
-  }
-
-  callAI([
-    {
-      role: "system",
-      content:
-        "You are PromptForge's Prompt Coach. Give accurate, practical, beginner-friendly answers about prompt building, AI tools, prompt structure, constraints, audiences, and output formats. Do not answer unrelated questions. Keep answers concise."
-    },
-    {
-      role: "user",
-      content: question
-    }
-  ])
-    .then(function (answer) {
-      addCoachMessage(String(answer).trim(), false);
-    })
-    .catch(function () {
-      addCoachMessage(getCoachFallback(question), false);
-    });
-}
-
-function sendCoachInput() {
-  var input = document.getElementById("coach-input");
-  var question = input.value.trim();
-
-  if (!question) {
-    return;
-  }
-
-  input.value = "";
-  sendCoachQuestion(question);
-}
-
-function toggleAppsDropdown() {
-  var panel = document.getElementById("apps-dropdown-panel");
-  var chevron = document.getElementById("apps-chevron");
-
-  if (!panel) {
-    return;
-  }
-
-  panel.classList.toggle("hidden");
-
-  if (chevron) {
-    chevron.classList.toggle("rotate-180");
-  }
-}
-
-function openConnectedApp(appName) {
-  var apps = {
-    NaturalWrite: "https://naturalwrite-nu.vercel.app/",
-    Summa: "https://www.contentsummarize.com/"
-  };
-
-  var url = apps[appName];
-
-  if (!url) {
-    showToast("That application link is not available.");
-    return;
-  }
-
-  var newWindow = window.open(url, "_blank");
-
-  if (newWindow) {
-    newWindow.opener = null;
-  } else {
-    showToast("Your browser blocked the new tab.");
-  }
-}
-
-function saveProfile() {
-  var nameInput = document.getElementById("profile-name");
-  var name = nameInput.value.trim();
-
-  if (!name) {
-    showToast("Enter a profile name first.");
-    return;
-  }
-
-  var profile = {
-    name: name,
-    description: document.getElementById("project-description").value,
-    audience: document.getElementById("audience").value,
-    goal: document.getElementById("goal").value,
-    techStack: document.getElementById("tech-stack").value,
-    selectedAI: selectedAI,
-    savedAt: new Date().toISOString()
-  };
-
-  var profiles = [];
-
-  try {
-    profiles = JSON.parse(
-      localStorage.getItem("pf_profiles") || "[]"
-    );
-
-    if (!Array.isArray(profiles)) {
-      profiles = [];
-    }
-
-    var duplicateCount = profiles.filter(function (item) {
-      return item.name === name;
-    }).length;
-
-    if (duplicateCount > 0) {
-      profile.name = name + " (" + (duplicateCount + 1) + ")";
-    }
-
-    profiles.unshift(profile);
-
-    localStorage.setItem(
-      "pf_profiles",
-      JSON.stringify(profiles)
-    );
-
-    nameInput.value = "";
-    renderProfiles();
-    showToast("Profile saved in this browser.");
-  } catch (error) {
-    showToast("The profile could not be saved.");
-  }
-}
-
-function renderProfiles() {
-  var container = document.getElementById("profile-chips");
-
-  if (!container) {
-    return;
-  }
-
-  container.innerHTML = "";
-
-  var profiles = [];
-
-  try {
-    profiles = JSON.parse(
-      localStorage.getItem("pf_profiles") || "[]"
-    );
-
-    if (!Array.isArray(profiles)) {
-      profiles = [];
-    }
-  } catch (error) {
-    profiles = [];
-  }
-
-  profiles.forEach(function (profile, index) {
-    var button = document.createElement("button");
-
-    button.type = "button";
-    button.textContent = "Load " + profile.name;
-    button.className =
-      "rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600 hover:bg-indigo-50 hover:text-indigo-700";
-
-    button.addEventListener("click", function () {
-      loadProfile(index);
+    document.addEventListener("keydown", function(e) {
+      if(e.key === "Escape") closeCoach();
     });
 
-    container.appendChild(button);
-  });
-}
+    /* ---------- APPS DROPDOWN CLOSE ON CLICK OUTSIDE ---------- */
+    document.addEventListener("click", function(e) {
+      var dropdown = document.querySelector("[onclick*='toggleAppsDropdown']");
+      var panel = document.getElementById("apps-dropdown-panel");
+      if(dropdown && !dropdown.contains(e.target) && !panel.contains(e.target) && !panel.classList.contains("hidden")) {
+        panel.classList.add("hidden");
+        document.getElementById("apps-chevron").classList.remove("rotate-180");
+      }
+    });
 
-function loadProfile(index) {
-  var profiles = [];
-
-  try {
-    profiles = JSON.parse(
-      localStorage.getItem("pf_profiles") || "[]"
-    );
-  } catch (error) {
-    showToast("Saved profiles could not be loaded.");
-    return;
-  }
-
-  var profile = profiles[index];
-
-  if (!profile) {
-    showToast("That profile could not be found.");
-    return;
-  }
-
-  document.getElementById("project-description").value =
-    profile.description || "";
-
-  document.getElementById("audience").value =
-    profile.audience || "";
-
-  document.getElementById("goal").value =
-    profile.goal || "";
-
-  document.getElementById("tech-stack").value =
-    profile.techStack || "";
-
-  var aiButton = Array.from(
-    document.querySelectorAll(".ai-option")
-  ).find(function (button) {
-    return button.textContent.trim() === profile.selectedAI;
-  });
-
-  if (aiButton) {
-    selectAI(aiButton, profile.selectedAI);
-  }
-
-  showToast("Profile loaded.");
-}
-
-document
-  .getElementById("settings-overlay")
-  .addEventListener("click", function (event) {
-    if (event.target === this) {
-      closeSettings();
-    }
-  });
-
-document
-  .getElementById("coach-input")
-  .addEventListener("keydown", function (event) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      sendCoachInput();
-    }
-  });
-
-document.addEventListener("keydown", function (event) {
-  if (event.key === "Escape") {
-    closeCoach();
-    closeSettings();
-  }
-});
-
-renderProfiles();
-updateWizardUI();
-updateKeyStatus();
-renderCoachChips(coachContexts.landing.chips);
-
-</script>
+  </script>
 </body>
 </html>
