@@ -36,6 +36,7 @@
     #coach-overlay.open, #settings-overlay.open { opacity: 1; pointer-events: auto; }
     .toast { transform: translate(-50%, 24px); opacity: 0; pointer-events: none; transition: .25s; }
     .toast.show { transform: translate(-50%, 0); opacity: 1; }
+    .mic-on { background: #dc2626 !important; color: #fff !important; border-color: #dc2626 !important; }
     @media (max-width: 850px) { .desktop-nav { display: none !important; } }
     @media (min-width: 851px) { .mobile-tools { display: none !important; } }
   </style>
@@ -69,6 +70,7 @@
     <div id="coach-messages" class="flex-1 space-y-4 overflow-y-auto p-5"></div>
     <div id="coach-chips" class="flex flex-wrap gap-2 px-5 pb-3"></div>
     <div class="flex gap-2 border-t p-4">
+      <button type="button" data-mic="coach-input" onclick="toggleMic('coach-input', this)" class="mic-btn shrink-0 rounded-xl border px-3 text-sm font-bold" title="Speak">Mic</button>
       <input id="coach-input" type="text" placeholder="Ask about prompts..." class="min-w-0 flex-1 rounded-xl border px-4 py-3 text-sm" />
       <button type="button" onclick="sendCoachInput()" class="rounded-xl bg-indigo-600 px-4 font-bold text-white">Send</button>
     </div>
@@ -111,8 +113,11 @@
         <p class="mb-4 text-xs font-bold text-slate-500"><span id="step-label">Step 1 of 3</span></p>
 
         <div id="wizard-step-1" class="wizard-step active rounded-3xl border bg-white p-8 shadow-sm">
-          <h2 class="font-display text-xl font-extrabold">What are you building?</h2>
-          <textarea id="project-description" class="mt-4 h-36 w-full rounded-2xl border bg-slate-50 p-4 text-sm" placeholder="Describe your project in plain language."></textarea>
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="font-display text-xl font-extrabold">What are you building?</h2>
+            <button type="button" data-mic="project-description" onclick="toggleMic('project-description', this)" class="mic-btn rounded-xl border px-3 py-2 text-sm font-bold">Mic</button>
+          </div>
+          <textarea id="project-description" class="mt-4 h-36 w-full rounded-2xl border bg-slate-50 p-4 text-sm" placeholder="Describe your project in plain language. Or click Mic and speak."></textarea>
         </div>
         <div id="wizard-step-2" class="wizard-step rounded-3xl border bg-white p-8 shadow-sm">
           <h2 class="font-display text-xl font-extrabold">Who is this for?</h2>
@@ -190,8 +195,11 @@
 
     <section id="view-improve" class="view min-h-[80vh] px-4 py-12">
       <div class="mx-auto max-w-3xl">
-        <h1 class="font-display text-3xl font-extrabold">Improve an existing prompt</h1>
-        <textarea id="existing-prompt" class="mt-6 h-48 w-full rounded-2xl border bg-white p-4 font-mono text-sm" placeholder="Paste a prompt..."></textarea>
+        <div class="flex items-center justify-between gap-3">
+          <h1 class="font-display text-3xl font-extrabold">Improve an existing prompt</h1>
+          <button type="button" data-mic="existing-prompt" onclick="toggleMic('existing-prompt', this)" class="mic-btn rounded-xl border px-3 py-2 text-sm font-bold">Mic</button>
+        </div>
+        <textarea id="existing-prompt" class="mt-6 h-48 w-full rounded-2xl border bg-white p-4 font-mono text-sm" placeholder="Paste a prompt, or click Mic and speak it."></textarea>
         <div class="mt-4 flex flex-wrap gap-2">
           <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Too vague</button>
           <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Ignores constraints</button>
@@ -204,7 +212,10 @@
 
     <section id="view-sandbox" class="view min-h-[80vh] px-4 py-12">
       <div class="mx-auto max-w-6xl">
-        <h1 class="font-display text-3xl font-extrabold">Prompt sandbox</h1>
+        <div class="flex items-center justify-between gap-3">
+          <h1 class="font-display text-3xl font-extrabold">Prompt sandbox</h1>
+          <button type="button" data-mic="sandbox-message" onclick="toggleMic('sandbox-message', this)" class="mic-btn rounded-xl border px-3 py-2 text-sm font-bold">Mic</button>
+        </div>
         <textarea id="sandbox-message" class="mt-4 h-24 w-full rounded-2xl border p-4 text-sm">Create a simple mobile-friendly dashboard layout.</textarea>
         <div class="mt-4 grid gap-4 md:grid-cols-3">
           <textarea id="sandbox-prompt-0" class="h-40 rounded-2xl border p-3 font-mono text-xs" placeholder="Prompt 1"></textarea>
@@ -234,6 +245,8 @@
     var selectedAI = "ChatGPT";
     var toastTimer;
     var coachContextName = "landing";
+    var speechRec = null;
+    var speechTargetId = null;
 
     function esc(v) {
       var el = document.createElement("div");
@@ -248,6 +261,7 @@
       toastTimer = setTimeout(function () { t.classList.remove("show"); }, 3600);
     }
     function showView(id) {
+      stopMic();
       document.querySelectorAll(".view").forEach(function (v) { v.classList.remove("active"); });
       document.getElementById("view-" + id).classList.add("active");
       document.querySelectorAll(".nav-link").forEach(function (b) { b.classList.remove("active"); });
@@ -262,6 +276,75 @@
     }
     function toggleAppsDropdown() {
       document.getElementById("apps-dropdown-panel").classList.toggle("hidden");
+    }
+
+    function clearMicButtons() {
+      document.querySelectorAll(".mic-btn").forEach(function (b) {
+        b.classList.remove("mic-on");
+        b.textContent = "Mic";
+      });
+    }
+    function stopMic() {
+      if (speechRec) {
+        try { speechRec.stop(); } catch (e) {}
+        speechRec = null;
+      }
+      speechTargetId = null;
+      clearMicButtons();
+    }
+    function toggleMic(fieldId, btn) {
+      var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!SR) {
+        showToast("Speech-to-text works in Chrome or Edge.");
+        return;
+      }
+      if (speechRec && speechTargetId === fieldId) {
+        stopMic();
+        showToast("Mic off.");
+        return;
+      }
+      stopMic();
+      var field = document.getElementById(fieldId);
+      if (!field) return;
+      speechRec = new SR();
+      speechRec.lang = (navigator.language || "en-US");
+      speechRec.continuous = true;
+      speechRec.interimResults = false;
+      speechTargetId = fieldId;
+      btn.classList.add("mic-on");
+      btn.textContent = "Stop";
+      speechRec.onresult = function (ev) {
+        var piece = "";
+        for (var i = ev.resultIndex; i < ev.results.length; i++) {
+          if (ev.results[i].isFinal) piece += ev.results[i][0].transcript;
+        }
+        piece = piece.trim();
+        if (!piece) return;
+        if (field.tagName === "INPUT") {
+          field.value = (field.value ? field.value + " " : "") + piece;
+        } else {
+          field.value = (field.value ? field.value.replace(/\s*$/, "") + " " : "") + piece;
+        }
+      };
+      speechRec.onerror = function (ev) {
+        stopMic();
+        if (ev.error === "not-allowed") showToast("Allow the microphone for this site, then try Mic again.");
+        else if (ev.error !== "aborted") showToast("Mic error: " + ev.error);
+      };
+      speechRec.onend = function () {
+        if (speechTargetId === fieldId) {
+          speechRec = null;
+          speechTargetId = null;
+          clearMicButtons();
+        }
+      };
+      try {
+        speechRec.start();
+        showToast("Listening… click Stop when done.");
+      } catch (e) {
+        stopMic();
+        showToast("Could not start the microphone.");
+      }
     }
 
     function callAI(messages, extra) {
@@ -460,7 +543,7 @@
       var c = coachContexts[ctx] || coachContexts.landing;
       document.getElementById("coach-context-label").textContent = c.label;
       document.getElementById("coach-messages").innerHTML = "";
-      addCoachMessage("Ask me anything about building prompts.", false);
+      addCoachMessage("Ask me anything about building prompts. You can type or use Mic.", false);
       var box = document.getElementById("coach-chips");
       box.innerHTML = "";
       c.chips.forEach(function (chip) {
@@ -475,6 +558,7 @@
       document.getElementById("coach-overlay").classList.add("open");
     }
     function closeCoach() {
+      stopMic();
       document.getElementById("coach-drawer").classList.remove("open");
       document.getElementById("coach-overlay").classList.remove("open");
     }
@@ -507,3 +591,6 @@
   </script>
 </body>
 </html>
+
+
+
