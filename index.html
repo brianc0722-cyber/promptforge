@@ -32,62 +32,22 @@
     }
     #coach-drawer { transform: translateX(110%); transition: transform .32s; }
     #coach-drawer.open { transform: translateX(0); }
-    #coach-overlay, #settings-overlay { opacity: 0; pointer-events: none; }
-    #coach-overlay.open, #settings-overlay.open { opacity: 1; pointer-events: auto; }
+    #coach-overlay { opacity: 0; pointer-events: none; }
+    #coach-overlay.open { opacity: 1; pointer-events: auto; }
     .toast { transform: translate(-50%, 24px); opacity: 0; pointer-events: none; transition: .25s; }
     .toast.show { transform: translate(-50%, 0); opacity: 1; }
     .mic-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 0;
-      height: 40px;
-      padding: 0 10px;
-      border: 1px solid #e2e8f0;
-      border-radius: 12px;
-      background: #fff;
-      font-size: 13px;
-      font-weight: 700;
-      color: #334155;
-      overflow: hidden;
-      max-width: 40px;
+      display: inline-flex; align-items: center; gap: 0; height: 40px; padding: 0 10px;
+      border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; font-size: 13px; font-weight: 700;
+      color: #334155; overflow: hidden; max-width: 40px;
       transition: max-width 0.35s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-      transition-delay: 0s;
     }
-    .mic-btn .mic-label {
-      max-width: 0;
-      opacity: 0;
-      overflow: hidden;
-      white-space: nowrap;
-      margin-left: 0;
-      transition: max-width 0.35s ease, opacity 0.35s ease, margin 0.35s ease;
-      transition-delay: 0s;
-    }
-    .mic-btn:hover,
-    .mic-btn:focus-visible,
-    .mic-btn.mic-on {
-      max-width: 160px;
-    }
-    .mic-btn:hover .mic-label,
-    .mic-btn:focus-visible .mic-label,
-    .mic-btn.mic-on .mic-label {
-      max-width: 110px;
-      opacity: 1;
-      margin-left: 8px;
-    }
-    .mic-btn:hover,
-    .mic-btn:focus-visible {
-      transition-delay: 1.4s;
-    }
-    .mic-btn:hover .mic-label,
-    .mic-btn:focus-visible .mic-label {
-      transition-delay: 1.4s;
-    }
-    .mic-btn.mic-on {
-      background: #dc2626;
-      border-color: #dc2626;
-      color: #fff;
-      transition-delay: 0s;
-    }
+    .mic-btn .mic-label { max-width: 0; opacity: 0; overflow: hidden; white-space: nowrap; margin-left: 0; transition: max-width 0.35s ease, opacity 0.35s ease, margin 0.35s ease; }
+    .mic-btn:hover, .mic-btn:focus-visible, .mic-btn.mic-on { max-width: 160px; }
+    .mic-btn:hover .mic-label, .mic-btn:focus-visible .mic-label, .mic-btn.mic-on .mic-label { max-width: 110px; opacity: 1; margin-left: 8px; }
+    .mic-btn:hover, .mic-btn:focus-visible { transition-delay: 1.4s; }
+    .mic-btn:hover .mic-label, .mic-btn:focus-visible .mic-label { transition-delay: 1.4s; }
+    .mic-btn.mic-on { background: #dc2626; border-color: #dc2626; color: #fff; transition-delay: 0s; }
     .mic-btn.mic-on .mic-label { transition-delay: 0s; }
     @media (max-width: 850px) { .desktop-nav { display: none !important; } }
     @media (min-width: 851px) { .mobile-tools { display: none !important; } }
@@ -166,7 +126,6 @@
         </div>
         <div class="mb-6 h-2 rounded-full bg-slate-200"><div id="wizard-progress" class="h-2 rounded-full bg-indigo-600" style="width:33%"></div></div>
         <p class="mb-4 text-xs font-bold text-slate-500"><span id="step-label">Step 1 of 3</span></p>
-
         <div id="wizard-step-1" class="wizard-step active rounded-3xl border bg-white p-8 shadow-sm">
           <div class="flex items-center justify-between gap-3">
             <h2 class="font-display text-xl font-extrabold">What are you building?</h2>
@@ -175,7 +134,7 @@
               <span class="mic-label">Microphone</span>
             </button>
           </div>
-          <textarea id="project-description" class="mt-4 h-36 w-full rounded-2xl border bg-slate-50 p-4 text-sm" placeholder="Describe your project in plain language. Or hover the mic, then speak."></textarea>
+          <textarea id="project-description" class="mt-4 h-36 w-full rounded-2xl border bg-slate-50 p-4 text-sm" placeholder="Describe your project in plain language."></textarea>
         </div>
         <div id="wizard-step-2" class="wizard-step rounded-3xl border bg-white p-8 shadow-sm">
           <h2 class="font-display text-xl font-extrabold">Who is this for?</h2>
@@ -311,6 +270,7 @@
     var coachContextName = "landing";
     var speechRec = null;
     var speechTargetId = null;
+    var NAMES = ["Essential", "Comprehensive", "Structured"];
 
     function esc(v) {
       var el = document.createElement("div");
@@ -341,7 +301,6 @@
     function toggleAppsDropdown() {
       document.getElementById("apps-dropdown-panel").classList.toggle("hidden");
     }
-
     function setMicLabel(btn, text) {
       var lab = btn.querySelector(".mic-label");
       if (lab) lab.textContent = text;
@@ -362,20 +321,13 @@
     }
     function toggleMic(fieldId, btn) {
       var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SR) {
-        showToast("Speech-to-text works in Chrome or Edge.");
-        return;
-      }
-      if (speechRec && speechTargetId === fieldId) {
-        stopMic();
-        showToast("Mic off.");
-        return;
-      }
+      if (!SR) { showToast("Speech-to-text works in Chrome or Edge."); return; }
+      if (speechRec && speechTargetId === fieldId) { stopMic(); showToast("Mic off."); return; }
       stopMic();
       var field = document.getElementById(fieldId);
       if (!field) return;
       speechRec = new SR();
-      speechRec.lang = (navigator.language || "en-US");
+      speechRec.lang = navigator.language || "en-US";
       speechRec.continuous = true;
       speechRec.interimResults = false;
       speechTargetId = fieldId;
@@ -392,23 +344,14 @@
       };
       speechRec.onerror = function (ev) {
         stopMic();
-        if (ev.error === "not-allowed") showToast("Allow the microphone for this site, then try again.");
+        if (ev.error === "not-allowed") showToast("Allow the microphone for this site.");
         else if (ev.error !== "aborted") showToast("Mic error: " + ev.error);
       };
       speechRec.onend = function () {
-        if (speechTargetId === fieldId) {
-          speechRec = null;
-          speechTargetId = null;
-          clearMicButtons();
-        }
+        if (speechTargetId === fieldId) { speechRec = null; speechTargetId = null; clearMicButtons(); }
       };
-      try {
-        speechRec.start();
-        showToast("Listening… click Stop when done.");
-      } catch (e) {
-        stopMic();
-        showToast("Could not start the microphone.");
-      }
+      try { speechRec.start(); showToast("Listening… click Stop when done."); }
+      catch (e) { stopMic(); showToast("Could not start the microphone."); }
     }
 
     function callAI(messages, extra) {
@@ -430,17 +373,69 @@
       s = s.replace(/```json/gi, "").replace(/```/g, "");
       var a = s.indexOf("{");
       var b = s.lastIndexOf("}");
-      if (a === -1 || b <= a) throw new Error("No JSON in reply");
+      if (a === -1 || b <= a) throw new Error("No JSON object in reply");
       return JSON.parse(s.slice(a, b + 1));
     }
 
-    function threeFromText(content) {
-      var t = String(content || "").trim();
-      return [
-        { label: "Essential", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Model reply (plain text fallback).", technical_details: [] } },
-        { label: "Comprehensive", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Same reply shown in all cards because JSON was missing.", technical_details: [] } },
-        { label: "Structured", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Same reply shown in all cards because JSON was missing.", technical_details: [] } }
-      ];
+    function variantText(v) {
+      if (v == null) return "";
+      if (typeof v === "string") return v;
+      if (typeof v === "object") {
+        if (typeof v.prompt_text === "string") return v.prompt_text;
+        var keys = ["ROLE", "TASK", "AUDIENCE", "CONSTRAINTS", "OUTPUT", "Role", "Task"];
+        var parts = [];
+        keys.forEach(function (k) {
+          if (v[k] != null && String(v[k]).trim()) {
+            parts.push("[" + k.toUpperCase() + "]\n" + (typeof v[k] === "string" ? v[k] : JSON.stringify(v[k])));
+          }
+        });
+        if (parts.length) return parts.join("\n\n");
+        try { return JSON.stringify(v, null, 2); } catch (e) { return String(v); }
+      }
+      return String(v);
+    }
+
+    function pack(label, text, eff) {
+      return {
+        label: label,
+        target_ai: selectedAI,
+        prompt_text: String(text || "").trim(),
+        effectiveness: eff && typeof eff === "object"
+          ? { plain_language: eff.plain_language || "", technical_details: eff.technical_details || [] }
+          : { plain_language: "", technical_details: [] }
+      };
+    }
+
+    function normalizeVariants(parsed, raw) {
+      if (parsed && Array.isArray(parsed.variants) && parsed.variants.length) {
+        return parsed.variants.map(function (item, idx) {
+          return pack(item.label || NAMES[idx] || "Variant", variantText(item.prompt_text != null ? item.prompt_text : item), item.effectiveness);
+        });
+      }
+      var out = [];
+      if (parsed && typeof parsed === "object") {
+        NAMES.forEach(function (name) {
+          var v = parsed[name] || parsed[name.toLowerCase()];
+          if (v != null) out.push(pack(name, variantText(v), v && v.effectiveness));
+        });
+      }
+      if (out.length) return out;
+      return [pack("Essential", String(raw || "").trim(), { plain_language: "Shown as one block because the model used an unexpected shape.", technical_details: [] })];
+    }
+
+    function cleanRefineText(text) {
+      var s = String(text || "").trim();
+      s = s.replace(/^```[\w]*\n?/, "").replace(/```$/, "").trim();
+      if (s.charAt(0) === "{") {
+        try {
+          var obj = extractJSON(s);
+          if (obj.prompt_text) return String(obj.prompt_text);
+          if (obj.variants && obj.variants[0]) return variantText(obj.variants[0].prompt_text || obj.variants[0]);
+          var n = variantText(obj.Essential || obj.essential || obj);
+          if (n) return n;
+        } catch (e) {}
+      }
+      return s;
     }
 
     function changeWizardStep(dir) {
@@ -482,24 +477,22 @@
       setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
       var user =
         "Create THREE prompts for " + selectedAI + ". They must NOT share sentences.\n" +
-        "ESSENTIAL: 4-8 short sentences. Direct. No numbered lists. No headers.\n" +
-        "COMPREHENSIVE: much longer. Numbered requirements, audience, examples, edge cases. Do not copy Essential.\n" +
-        "STRUCTURED: labeled blocks only like [ROLE] [TASK] [CONSTRAINTS] [OUTPUT]. No intro paragraph. Do not copy the others.\n" +
-        "If two prompts look similar, rewrite them.\n" +
-        "Return ONLY JSON:\n" +
-        "{\"variants\":[{\"label\":\"Essential\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Comprehensive\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Structured\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}}]}\n" +
+        "Use a variants array. Each item needs label, target_ai, prompt_text (a STRING), effectiveness.\n" +
+        "ESSENTIAL prompt_text: 4-8 short sentences. No lists. No headers.\n" +
+        "COMPREHENSIVE prompt_text: long numbered brief. Do not copy Essential.\n" +
+        "STRUCTURED prompt_text: a STRING with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a nested object.\n" +
+        "Return ONLY JSON with key variants.\n" +
         "Project: " + desc + "\nAudience: " + (audience || "n/a") + "\nGoal: " + (goal || "n/a") + "\nTech: " + (stack || "n/a");
       callAI(
         [
-          { role: "system", content: "JSON only. The three prompt_text fields must be clearly different in length and layout." },
+          { role: "system", content: "JSON only. variants[].prompt_text must be strings, not nested objects." },
           { role: "user", content: user }
         ],
         { response_format: { type: "json_object" }, temperature: 0.6 }
       ).then(function (content) {
-        var parsed;
-        try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
-        if (!parsed.variants || !parsed.variants.length) parsed = { variants: threeFromText(content) };
-        renderResults(parsed.variants);
+        var parsed = null;
+        try { parsed = extractJSON(content); } catch (e) { parsed = null; }
+        renderResults(normalizeVariants(parsed, content));
         showView("results");
         showToast("Prompts ready.");
       }).catch(function (err) {
@@ -511,16 +504,18 @@
 
     function renderResults(variants) {
       for (var i = 0; i < 3; i++) {
-        if (!variants[i]) continue;
-        document.getElementById("prompt-" + i).textContent = variants[i].prompt_text || "";
-        var eff = variants[i].effectiveness || {};
+        var card = variants[i];
+        document.getElementById("prompt-" + i).textContent = card ? (card.prompt_text || "") : "";
+        var box = document.getElementById("breakdown-" + i);
+        if (!card) { box.innerHTML = ""; continue; }
+        var eff = card.effectiveness || {};
         var html = "<p>" + esc(eff.plain_language || "") + "</p>";
         if (eff.technical_details && eff.technical_details.length) {
           html += "<ul class='mt-2 list-disc pl-5 text-xs'>";
           eff.technical_details.forEach(function (d) { html += "<li>" + esc(d) + "</li>"; });
           html += "</ul>";
         }
-        document.getElementById("breakdown-" + i).innerHTML = html;
+        box.innerHTML = html;
       }
     }
     function copyPrompt(i) {
@@ -532,14 +527,25 @@
     function refinePrompt(i) {
       var btn = document.getElementById("refine-btn-" + i);
       var el = document.getElementById("prompt-" + i);
+      var current = el.textContent.trim();
+      if (!current) { showToast("Nothing to refine yet."); return; }
+      var style =
+        i === 0 ? "Keep Essential: 4-8 sentence paragraph. No lists, no [ROLE] headers, no JSON." :
+        i === 1 ? "Keep Comprehensive: long numbered requirements. Do not copy the Essential card. No JSON." :
+        "Keep Structured: plain text with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a JSON object.";
       setLoading(btn, true, "Refining...", "Refine this version");
-      callAI([
-        { role: "system", content: "Return only the refined prompt text." },
-        { role: "user", content: "Refine for " + selectedAI + ":\n" + el.textContent }
-      ]).then(function (c) {
-        el.textContent = c;
-        showToast("Refined");
-      }).catch(function (e) { alert(e.message); }).then(function () {
+      callAI(
+        [
+          { role: "system", content: "Return ONLY the rewritten prompt as plain text. No JSON. No markdown fences. No preamble." },
+          { role: "user", content: "Variant: " + NAMES[i] + "\n" + style + "\nOptimize for " + selectedAI + ".\nRewrite this prompt so it is stronger and clearly this variant only:\n\n" + current }
+        ],
+        { temperature: 0.8 }
+      ).then(function (c) {
+        el.textContent = cleanRefineText(c);
+        showToast("Refined " + NAMES[i]);
+      }).catch(function (e) {
+        alert("Refine failed: " + e.message);
+      }).then(function () {
         setLoading(btn, false, "", "Refine this version");
       });
     }
@@ -558,15 +564,15 @@
       setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
       var user =
         "Improve this prompt into THREE versions that must NOT share sentences. Issues: " + issues.join(", ") + "\n" +
-        "ESSENTIAL: short paragraph. COMPREHENSIVE: long numbered brief. STRUCTURED: [ROLE][TASK][CONSTRAINTS][OUTPUT] blocks only.\n" +
-        "Return ONLY JSON with variants Essential, Comprehensive, Structured.\nPrompt:\n" + promptText;
+        "Use variants[].prompt_text as STRINGS. Essential short paragraph. Comprehensive numbered brief. Structured [ROLE] lines as one string, not nested JSON.\n" +
+        "Prompt:\n" + promptText;
       callAI(
-        [{ role: "system", content: "JSON only. Three clearly different prompt_text values." }, { role: "user", content: user }],
+        [{ role: "system", content: "JSON only with a variants array. prompt_text must be strings." }, { role: "user", content: user }],
         { response_format: { type: "json_object" }, temperature: 0.6 }
       ).then(function (content) {
-        var parsed;
-        try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
-        renderResults(parsed.variants || threeFromText(content));
+        var parsed = null;
+        try { parsed = extractJSON(content); } catch (e) { parsed = null; }
+        renderResults(normalizeVariants(parsed, content));
         showView("results");
       }).catch(function (e) { alert("Improvement failed: " + e.message); }).then(function () {
         setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
@@ -589,7 +595,7 @@
         var out = document.getElementById("sb-out-" + i);
         if (!p) { out.textContent = "(empty)"; done++; if (done === 3) setLoading(document.getElementById("sandbox-btn"), false, "", "Compare outputs"); return; }
         callAI([
-          { role: "system", content: "Execute the prompt. Return only the output." },
+          { role: "system", content: "Execute the prompt. Return only the output. No JSON unless the prompt requires it." },
           { role: "user", content: "Prompt:\n" + p + "\n\nTest:\n" + msg }
         ]).then(function (c) { out.textContent = c.slice(0, 500); }).catch(function (e) { out.textContent = e.message; }).then(function () {
           done++;
@@ -635,7 +641,7 @@
     function sendCoachQuestion(q) {
       addCoachMessage(q, true);
       callAI([
-        { role: "system", content: "You are a friendly prompt-engineering coach. Be clear and human. Give a fresh answer each time; do not repeat a previous reply." },
+        { role: "system", content: "You are a friendly prompt-engineering coach. Plain language. No JSON unless asked." },
         { role: "user", content: q }
       ]).then(function (a) { addCoachMessage(a, false); }).catch(function (e) { addCoachMessage(e.message, false); });
     }
