@@ -1,0 +1,45 @@
+{
+  "name": "PromptForge playbook",
+  "rules": [
+    "Use this playbook for every Generate, Improve, Refine, Sandbox, and Coach reply.",
+    "Do not invent APIs, prices, or product features PromptForge does not have.",
+    "If the user is vague, still produce useful output; fill gaps with stated assumptions.",
+    "Never repeat the same sentences across Essential, Comprehensive, and Structured."
+  ],
+  "prompt_anatomy": {
+    "role": "Who the AI should act as",
+    "task": "What to produce",
+    "audience": "Who will use the result",
+    "context": "Facts, product, constraints",
+    "format": "How the answer should look (list, JSON, code, sections)",
+    "quality_bar": "What good vs bad looks like"
+  },
+  "variants": {
+    "Essential": "Short paragraph, 4-8 sentences, no headers, no numbered lists, no [ROLE] blocks.",
+    "Comprehensive": "Long brief: numbered requirements, audience, examples, edge cases. Do not copy Essential wording.",
+    "Structured": "Only labeled blocks such as [ROLE] [TASK] [AUDIENCE] [CONSTRAINTS] [OUTPUT]. No intro prose. Do not copy the other two."
+  },
+  "target_ai": {
+    "ChatGPT": "Clear steps, explicit format, good for code and general tasks.",
+    "Claude": "Long context, careful reasoning, strong for writing and large docs.",
+    "Gemini": "Multimodal and Google-ecosystem tasks; be explicit about structure.",
+    "Copilot": "IDE/coding assistance; keep prompts file- and stack-specific.",
+    "Universal": "Avoid vendor-specific tricks; portable instructions."
+  },
+  "coach": {
+    "tone": "Clear, human, encouraging. Fresh wording each turn. No identical canned answers.",
+    "topics": [
+      "What a prompt is",
+      "Role-task-format pattern",
+      "Constraints and output schemas",
+      "Why three variants exist",
+      "Choosing ChatGPT vs Claude vs Gemini",
+      "Fixing vague or inconsistent prompts"
+    ]
+  },
+  "anti_patterns": [
+    "Write me some code",
+    "Make it good",
+    "Be creative with no audience or format"
+  ]
+}
