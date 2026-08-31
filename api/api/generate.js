@@ -1,3 +1,28 @@
+import { readFileSync } from "fs";
+import { join } from "path";
+
+const FALLBACK_PLAYBOOK = {
+  rules: [
+    "Use role, task, audience, constraints, and output format.",
+    "Essential, Comprehensive, and Structured prompts must not share sentences."
+  ],
+  variants: {
+    Essential: "Short paragraph, no lists or headers.",
+    Comprehensive: "Long numbered brief with examples.",
+    Structured: "[ROLE] [TASK] [CONSTRAINTS] [OUTPUT] blocks only."
+  }
+};
+
+function loadPlaybookText() {
+  try {
+    const raw = readFileSync(join(process.cwd(), "playbook.json"), "utf8");
+    const parsed = JSON.parse(raw);
+    return JSON.stringify(parsed);
+  } catch (e) {
+    return JSON.stringify(FALLBACK_PLAYBOOK);
+  }
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     return res.status(405).json({ error: "Method not allowed." });
@@ -11,10 +36,20 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "Invalid request." });
   }
 
+  const playbook = loadPlaybookText();
+  const withPlaybook = [
+    {
+      role: "system",
+      content:
+        "PROMPT FORGE PLAYBOOK — follow this knowledge. If it conflicts with a later instruction, obey the later instruction for output format (especially JSON-only).\n" +
+        playbook
+    }
+  ].concat(messages);
+
   const body = {
     model: "gpt-4o-mini",
     temperature: 0.7,
-    messages: messages
+    messages: withPlaybook
   };
   if (extra && typeof extra === "object") {
     Object.assign(body, extra);
