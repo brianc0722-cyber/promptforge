@@ -3,587 +3,303 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>PromptForge — Build AI prompts that work</title>
+  <title>PromptForge</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ["DM Sans","Arial","sans-serif"], display: ["Manrope","Arial","sans-serif"] },
-          colors: { brand: { 50:"#eef4ff", 100:"#dce8ff", 500:"#4f46e5", 600:"#4338ca", 700:"#3730a3", 900:"#1e1b4b" } }
+          fontFamily: { sans: ["DM Sans", "sans-serif"], display: ["Manrope", "sans-serif"] }
         }
       }
     };
   </script>
   <style>
-    html { background:#f8fafc; }
-    .view { display:none; animation:fadeIn .25s ease-out; }
-    .view.active { display:block; }
-    .wizard-step { display:none; animation:slideUp .25s ease-out; }
-    .wizard-step.active { display:block; }
-    .nav-link.active { color:#4f46e5; font-weight:700; }
+    .view { display: none; }
+    .view.active { display: block; }
+    .wizard-step { display: none; }
+    .wizard-step.active { display: block; }
+    .nav-link.active { color: #4f46e5; font-weight: 700; }
     .landing-ambient {
       min-height: calc(100vh - 72px);
       background:
         radial-gradient(ellipse 55% 55% at 0% 0%, rgba(14,165,233,.18), transparent 73%),
         radial-gradient(ellipse 52% 52% at 100% 0%, rgba(79,70,229,.19), transparent 75%),
-        radial-gradient(ellipse 48% 48% at 0% 100%, rgba(6,182,212,.13), transparent 74%),
-        radial-gradient(ellipse 52% 52% at 100% 100%, rgba(99,102,241,.15), transparent 76%),
-        linear-gradient(180deg,#f8fbff 0%,#f8fafc 75%,#f5f7ff 100%);
+        linear-gradient(180deg, #f8fbff, #f8fafc);
     }
-    #coach-drawer { transform:translateX(110%); transition:transform .32s cubic-bezier(.2,.8,.2,1); }
-    #coach-drawer.open { transform:translateX(0); }
-    #coach-overlay, #settings-overlay { opacity:0; pointer-events:none; transition:opacity .25s ease; }
-    #coach-overlay.open, #settings-overlay.open { opacity:1; pointer-events:auto; }
-    #settings-panel { transform:translateY(16px); opacity:0; transition:all .25s ease; }
-    #settings-overlay.open #settings-panel { transform:translateY(0); opacity:1; }
-    .toast { transform:translate(-50%,24px); opacity:0; pointer-events:none; transition:all .25s ease; }
-    .toast.show { transform:translate(-50%,0); opacity:1; }
-    @keyframes fadeIn { from{opacity:0} to{opacity:1} }
-    @keyframes slideUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
-    @media (max-width:850px){ .desktop-nav{display:none!important} }
-    @media (min-width:851px){ .mobile-tools{display:none!important} }
+    #coach-drawer { transform: translateX(110%); transition: transform .32s; }
+    #coach-drawer.open { transform: translateX(0); }
+    #coach-overlay, #settings-overlay { opacity: 0; pointer-events: none; }
+    #coach-overlay.open, #settings-overlay.open { opacity: 1; pointer-events: auto; }
+    .toast { transform: translate(-50%, 24px); opacity: 0; pointer-events: none; transition: .25s; }
+    .toast.show { transform: translate(-50%, 0); opacity: 1; }
+    @media (max-width: 850px) { .desktop-nav { display: none !important; } }
+    @media (min-width: 851px) { .mobile-tools { display: none !important; } }
   </style>
 </head>
-<body class="min-h-screen bg-slate-50 font-sans text-slate-900 antialiased">
-
-  <!-- HEADER -->
-  <header class="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
-    <div class="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5 sm:px-6">
-      <button type="button" onclick="showView('home')" class="group flex items-center gap-3 text-left">
-        <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 via-violet-600 to-sky-500 text-white shadow-lg shadow-indigo-500/25 transition group-hover:scale-105">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.7"><path stroke-linecap="round" stroke-linejoin="round" d="M13 2 4 14h7l-1 8 10-13h-7V2Z"/></svg>
-        </span>
-        <span class="font-display text-[21px] font-extrabold tracking-[-0.05em] text-slate-900">PromptForge</span>
-      </button>
-
-      <nav class="desktop-nav flex items-center gap-8 whitespace-nowrap text-[15px] font-medium">
-        <button data-nav="home" onclick="showView('home')" class="nav-link transition hover:text-brand-600">Home</button>
-        <button data-nav="wizard" onclick="showView('wizard')" class="nav-link transition hover:text-brand-600">Wizard</button>
-        <button data-nav="improve" onclick="showView('improve')" class="nav-link transition hover:text-brand-600">Improve</button>
-        <button data-nav="sandbox" onclick="showView('sandbox')" class="nav-link transition hover:text-brand-600">Sandbox</button>
-        <button data-nav="pricing" onclick="showView('pricing')" class="nav-link transition hover:text-brand-600">Pricing</button>
-        <button type="button" onclick="openSettings()" class="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50">
-          <span id="key-dot" class="h-2 w-2 rounded-full bg-slate-300"></span>
-          <span id="key-label">Connect AI</span>
-        </button>
+<body class="min-h-screen bg-slate-50 font-sans text-slate-900">
+  <header class="sticky top-0 z-30 border-b bg-white/90 backdrop-blur-xl">
+    <div class="mx-auto flex h-[72px] max-w-7xl items-center justify-between px-5">
+      <button type="button" onclick="showView('home')" class="flex items-center gap-3 font-display text-xl font-extrabold">PromptForge</button>
+      <nav class="desktop-nav flex items-center gap-8 text-[15px]">
+        <button data-nav="home" onclick="showView('home')" class="nav-link">Home</button>
+        <button data-nav="wizard" onclick="showView('wizard')" class="nav-link">Wizard</button>
+        <button data-nav="improve" onclick="showView('improve')" class="nav-link">Improve</button>
+        <button data-nav="sandbox" onclick="showView('sandbox')" class="nav-link">Sandbox</button>
+        <button data-nav="pricing" onclick="showView('pricing')" class="nav-link">Pricing</button>
       </nav>
-
-      <div class="mobile-tools flex items-center gap-2">
-        <button type="button" onclick="openSettings()" class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">Connect AI</button>
-        <button type="button" onclick="openCoach('landing')" class="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">Coach</button>
+      <div class="mobile-tools">
+        <button type="button" onclick="openCoach('landing')" class="rounded-lg bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700">Coach</button>
       </div>
     </div>
   </header>
 
-  <!-- SETTINGS MODAL -->
-  <div id="settings-overlay" class="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm">
-    <div id="settings-panel" class="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-7 shadow-2xl">
-      <div class="flex items-start justify-between">
-        <div>
-          <h2 class="font-display text-xl font-extrabold tracking-tight">Connect your AI</h2>
-          <p class="mt-1 text-sm text-slate-600">PromptForge uses your own OpenAI key. It is stored only in this browser and never sent anywhere except OpenAI.</p>
-        </div>
-        <button type="button" onclick="closeSettings()" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
+  <div id="coach-overlay" onclick="closeCoach()" class="fixed inset-0 z-40 bg-slate-950/25"></div>
+  <aside id="coach-drawer" class="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[430px] flex-col border-l bg-white shadow-2xl">
+    <div class="flex items-center justify-between border-b p-5">
+      <div>
+        <h2 class="font-display font-extrabold">Prompt Coach</h2>
+        <p id="coach-context-label" class="text-xs text-slate-500">Help</p>
       </div>
-      <label class="mt-6 block text-sm font-bold text-slate-700" for="key-input">OpenAI API key</label>
-      <input id="key-input" type="password" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-mono text-sm outline-none focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="sk-..." />
-      <p class="mt-3 text-xs text-slate-500">No key yet? Create one at <span class="font-bold">platform.openai.com → API keys</span>. A $5 credit lasts hundreds of generations.</p>
-      <div class="mt-6 flex gap-3">
-        <button type="button" onclick="removeKey()" class="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50">Remove</button>
-        <button type="button" onclick="saveKey()" class="flex-1 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700">Save key</button>
-      </div>
-      <p id="key-status" class="mt-3 text-center text-xs font-semibold text-slate-500"></p>
-    </div>
-  </div>
-
-  <!-- COACH DRAWER -->
-  <div id="coach-overlay" onclick="closeCoach()" class="fixed inset-0 z-40 bg-slate-950/25 backdrop-blur-[2px]"></div>
-  <aside id="coach-drawer" class="fixed right-0 top-0 z-50 flex h-screen w-full max-w-[430px] flex-col border-l border-slate-200 bg-white shadow-2xl">
-    <div class="border-b border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-sky-50 p-5">
-      <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-sky-500 text-white shadow-md shadow-indigo-500/25">
-            <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.7 17h4.6M12 3v1m6.4 1.6-.7.7M21 12h-1M4 12H3m3.3-5.7-.7-.7m12.8 12.8-.7-.7M9 20h6a2 2 0 0 0 2-2v-.7c0-.9.4-1.8 1-2.4A7 7 0 1 0 6 14.9c.6.6 1 1.5 1 2.4v.7a2 2 0 0 0 2 2Z"/></svg>
-          </div>
-          <div>
-            <h2 class="font-display text-base font-extrabold tracking-tight">Prompt Coach</h2>
-            <p id="coach-context-label" class="text-xs font-medium text-slate-500">Product overview</p>
-          </div>
-        </div>
-        <button type="button" onclick="closeCoach()" class="flex h-9 w-9 items-center justify-center rounded-lg text-slate-400 hover:bg-white hover:text-slate-700">
-          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="m6 6 12 12M18 6 6 18"/></svg>
-        </button>
-      </div>
+      <button type="button" onclick="closeCoach()" class="h-9 w-9 rounded-lg text-slate-400">×</button>
     </div>
     <div id="coach-messages" class="flex-1 space-y-4 overflow-y-auto p-5"></div>
-    <div id="coach-chips" class="flex flex-wrap gap-2 px-5 pb-4"></div>
-    <div class="border-t border-slate-100 bg-white p-4">
-      <div class="flex gap-2">
-        <input id="coach-input" type="text" placeholder="Ask about building prompts..." class="min-w-0 flex-1 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" />
-        <button type="button" onclick="sendCoachInput()" class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-md shadow-indigo-500/20 hover:bg-indigo-700">
-          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path stroke-linecap="round" stroke-linejoin="round" d="m12 19 9 2-9-18-9 18 9-2Zm0 0v-8"/></svg>
-        </button>
-      </div>
-      <p class="mt-2 text-center text-[11px] text-slate-400">Answers come from your connected AI.</p>
+    <div id="coach-chips" class="flex flex-wrap gap-2 px-5 pb-3"></div>
+    <div class="flex gap-2 border-t p-4">
+      <input id="coach-input" type="text" placeholder="Ask about prompts..." class="min-w-0 flex-1 rounded-xl border px-4 py-3 text-sm" />
+      <button type="button" onclick="sendCoachInput()" class="rounded-xl bg-indigo-600 px-4 font-bold text-white">Send</button>
     </div>
   </aside>
 
   <main>
-    <!-- HOME -->
     <section id="view-home" class="view active landing-ambient">
-      <div class="mx-auto max-w-5xl px-4 pb-16 pt-20 text-center sm:pt-28">
-        <div class="inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-white/70 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-sm backdrop-blur">
-          <span class="h-2 w-2 rounded-full bg-sky-500"></span> Built for ChatGPT, Claude, Gemini &amp; Copilot
+      <div class="mx-auto max-w-4xl px-4 py-20 text-center">
+        <h1 class="font-display text-5xl font-extrabold tracking-tight">Build AI prompts that <span class="text-indigo-600">actually work.</span></h1>
+        <p class="mx-auto mt-5 max-w-2xl text-lg text-slate-600">Answer a few questions. Get three optimized prompts and a plain-language explanation.</p>
+        <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <button type="button" onclick="showView('wizard')" class="rounded-xl bg-indigo-600 px-7 py-3.5 font-bold text-white">Start building — free</button>
+          <button type="button" onclick="showView('improve')" class="rounded-xl border bg-white px-7 py-3.5 font-bold">Improve an existing prompt</button>
         </div>
-        <h1 class="mx-auto mt-7 max-w-4xl font-display text-5xl font-extrabold tracking-[-0.055em] text-slate-950 sm:text-6xl lg:text-7xl">
-          Build AI prompts that <span class="bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-600 bg-clip-text text-transparent">actually work.</span>
-        </h1>
-        <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-slate-600 sm:text-xl">Answer simple questions, get three optimized prompt options, and understand exactly why each prompt is effective.</p>
-        <div class="mt-9 flex flex-col justify-center gap-3 sm:flex-row">
-          <button type="button" onclick="showView('wizard')" class="rounded-xl bg-indigo-600 px-7 py-3.5 font-bold text-white shadow-lg shadow-indigo-500/30 transition hover:-translate-y-0.5 hover:bg-indigo-700">Start building — free</button>
-          <button type="button" onclick="showView('improve')" class="rounded-xl border border-slate-200 bg-white px-7 py-3.5 font-bold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50">Improve an existing prompt</button>
-        </div>
-        <div class="mt-6">
-          <button type="button" onclick="openCoach('landing')" class="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-700 transition hover:bg-indigo-50">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg>
-            Not sure where to start? Ask the Prompt Coach
+        <button type="button" onclick="openCoach('landing')" class="mt-5 text-sm font-bold text-indigo-700">Ask the Prompt Coach</button>
+        <div class="mx-auto mt-8 max-w-md text-left">
+          <button type="button" onclick="toggleAppsDropdown()" class="flex w-full items-center justify-between rounded-2xl border bg-white px-5 py-4 shadow-sm">
+            <span><span class="block text-sm font-extrabold">Explore your AI toolkit</span><span class="text-xs text-slate-500">PromptForge, NaturalWrite, and Summa</span></span>
+            <span>▾</span>
           </button>
-        </div>
-        <p class="mt-2 text-xs font-medium text-slate-500">No account required. Your AI key and saved profiles stay in your browser.</p>
-
-        <div class="mt-7 mx-auto max-w-md text-left">
-          <button type="button" onclick="toggleAppsDropdown()" class="flex w-full items-center justify-between rounded-2xl border border-indigo-100 bg-white/80 px-5 py-4 text-left shadow-sm backdrop-blur transition hover:border-indigo-200 hover:shadow-md">
-            <span class="flex items-center gap-3">
-              <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-600 to-sky-500 text-white">
-                <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
-              </span>
-              <span>
-                <span class="block text-sm font-extrabold text-slate-900">Explore your AI toolkit</span>
-                <span class="block text-xs text-slate-500">PromptForge, NaturalWrite, and Summa work better together.</span>
-              </span>
-            </span>
-            <svg id="apps-chevron" class="h-5 w-5 text-indigo-600 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="m6 9 6 6 6-6"/></svg>
-          </button>
-          <div id="apps-dropdown-panel" class="hidden overflow-hidden rounded-b-2xl border-x border-b border-indigo-100 bg-white shadow-lg">
-            <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
-              <span class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M13 2 4 14h7l-1 8 10-13h-7V2Z"/></svg></span>
-                <span><span class="block text-sm font-bold text-slate-900">PromptForge</span><span class="block text-xs text-slate-500">Create, improve &amp; test AI prompts.</span></span>
-              </span>
-              <span class="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-bold text-indigo-700">You are here</span>
-            </div>
-            <button type="button" onclick="openConnectedApp('NaturalWrite')" class="flex w-full items-center justify-between border-b border-slate-100 px-5 py-4 text-left transition hover:bg-emerald-50">
-              <span class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-emerald-50 text-emerald-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
-                <span><span class="block text-sm font-bold text-slate-900">NaturalWrite</span><span class="block text-xs text-slate-500">Clear, natural writing from your ideas.</span></span>
-              </span>
-              <span class="text-sm font-bold text-emerald-600">Open →</span>
-            </button>
-            <button type="button" onclick="openConnectedApp('Summa')" class="flex w-full items-center justify-between px-5 py-4 text-left transition hover:bg-amber-50">
-              <span class="flex items-center gap-3">
-                <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-50 text-amber-600"><svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><path d="M8 6h13M8 12h13M8 18h9"/></svg></span>
-                <span><span class="block text-sm font-bold text-slate-900">Summa</span><span class="block text-xs text-slate-500">Turn long content into useful summaries.</span></span>
-              </span>
-              <span class="text-sm font-bold text-amber-600">Open →</span>
-            </button>
+          <div id="apps-dropdown-panel" class="hidden rounded-b-2xl border-x border-b bg-white">
+            <div class="flex items-center justify-between border-b px-5 py-4 text-sm"><span>PromptForge</span><span class="text-indigo-700">You are here</span></div>
+            <button type="button" onclick="window.open('https://naturalwrite-nu.vercel.app/','_blank')" class="flex w-full justify-between px-5 py-4 text-left text-sm">NaturalWrite <span class="text-emerald-600">Open →</span></button>
+            <button type="button" onclick="window.open('https://www.contentsummarize.com/','_blank')" class="flex w-full justify-between px-5 py-4 text-left text-sm">Summa <span class="text-amber-600">Open →</span></button>
           </div>
         </div>
       </div>
-
-      <div class="mx-auto grid max-w-6xl gap-5 px-4 pb-24 md:grid-cols-3">
-        <article class="rounded-2xl border border-white bg-white/80 p-6 text-left shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2"/></svg></div>
-          <h2 class="mt-5 font-display text-lg font-extrabold tracking-tight">Guided, not overwhelming</h2>
-          <p class="mt-2 text-sm leading-relaxed text-slate-600">A beginner-friendly wizard asks only what is needed, with a Coach on standby.</p>
-        </article>
-        <article class="rounded-2xl border border-white bg-white/80 p-6 text-left shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-violet-50 text-violet-600"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6l4 2m5-2a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg></div>
-          <h2 class="mt-5 font-display text-lg font-extrabold tracking-tight">Three options, not one guess</h2>
-          <p class="mt-2 text-sm leading-relaxed text-slate-600">Essential, Comprehensive, and Structured variants, generated by real AI.</p>
-        </article>
-        <article class="rounded-2xl border border-white bg-white/80 p-6 text-left shadow-sm backdrop-blur transition hover:-translate-y-1 hover:shadow-lg">
-          <div class="flex h-11 w-11 items-center justify-center rounded-xl bg-sky-50 text-sky-600"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.7 17h4.6M12 3v1m6.4 1.6-.7.7M21 12h-1M4 12H3"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 20h6a2 2 0 0 0 2-2v-.7c0-.9.4-1.8 1-2.4A7 7 0 1 0 6 14.9c.6.6 1 1.5 1 2.4v.7a2 2 0 0 0 2 2Z"/></svg></div>
-          <h2 class="mt-5 font-display text-lg font-extrabold tracking-tight">Know why it works</h2>
-          <p class="mt-2 text-sm leading-relaxed text-slate-600">Every prompt ships with a plain-language explanation and technical breakdown.</p>
-        </article>
-      </div>
     </section>
 
-    <!-- WIZARD -->
-    <section id="view-wizard" class="view min-h-[calc(100vh-72px)] bg-slate-50">
-      <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <div class="mb-6 flex flex-wrap items-start justify-between gap-4">
+    <section id="view-wizard" class="view min-h-[80vh] px-4 py-12">
+      <div class="mx-auto max-w-3xl">
+        <div class="mb-6 flex items-start justify-between">
           <div>
             <p class="text-sm font-bold text-indigo-600">Prompt Builder</p>
-            <h1 class="mt-1 font-display text-3xl font-extrabold tracking-tight text-slate-950">Create a prompt</h1>
-            <p class="mt-2 text-slate-600">Three quick steps. No prompt-engineering experience required.</p>
+            <h1 class="font-display text-3xl font-extrabold">Create a prompt</h1>
           </div>
-          <button type="button" onclick="openCoach('wizard')" class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm transition hover:bg-indigo-50">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg>
-            Ask the Coach
-          </button>
+          <button type="button" onclick="openCoach('wizard')" class="rounded-xl border px-4 py-2 text-sm font-bold text-indigo-700">Ask the Coach</button>
         </div>
+        <div class="mb-6 h-2 rounded-full bg-slate-200"><div id="wizard-progress" class="h-2 rounded-full bg-indigo-600" style="width:33%"></div></div>
+        <p class="mb-4 text-xs font-bold text-slate-500"><span id="step-label">Step 1 of 3</span></p>
 
-        <div class="mb-8">
-          <div class="mb-2 flex justify-between text-xs font-bold text-slate-500">
-            <span id="step-label">Step 1 of 3</span>
-            <span id="step-percent">33% complete</span>
-          </div>
-          <div class="h-2 overflow-hidden rounded-full bg-slate-200">
-            <div id="wizard-progress" class="h-full rounded-full bg-gradient-to-r from-indigo-600 via-violet-600 to-sky-500 transition-all duration-500" style="width:33%"></div>
-          </div>
+        <div id="wizard-step-1" class="wizard-step active rounded-3xl border bg-white p-8 shadow-sm">
+          <h2 class="font-display text-xl font-extrabold">What are you building?</h2>
+          <textarea id="project-description" class="mt-4 h-36 w-full rounded-2xl border bg-slate-50 p-4 text-sm" placeholder="Describe your project in plain language."></textarea>
         </div>
-
-        <div id="wizard-step-1" class="wizard-step active rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="font-display text-xl font-extrabold tracking-tight">What are you building?</h2>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">Describe the project, task, or outcome you want AI help with.</p>
-            </div>
-            <button type="button" onclick="openCoach('step1')" title="Need help?" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg></button>
-          </div>
-          <label class="mt-7 block text-sm font-bold text-slate-700" for="project-description">Your project or task</label>
-          <textarea id="project-description" class="mt-2 h-36 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm leading-relaxed outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="Example: I want to create a web app that helps freelance designers track invoices, late payments, and monthly income."></textarea>
-          <button type="button" onclick="openCoach('step1')" class="mt-3 inline-flex items-center gap-1.5 text-sm font-bold text-indigo-600 hover:text-indigo-800">Not sure what to write? Ask the Coach</button>
+        <div id="wizard-step-2" class="wizard-step rounded-3xl border bg-white p-8 shadow-sm">
+          <h2 class="font-display text-xl font-extrabold">Who is this for?</h2>
+          <input id="audience" class="mt-4 w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm" placeholder="Target audience" />
+          <input id="goal" class="mt-3 w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm" placeholder="Primary goal" />
         </div>
-
-        <div id="wizard-step-2" class="wizard-step rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="font-display text-xl font-extrabold tracking-tight">Who is this for?</h2>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">Tell us who will use the AI response and what success looks like.</p>
-            </div>
-            <button type="button" onclick="openCoach('step2')" title="Need help?" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg></button>
-          </div>
-          <div class="mt-7 space-y-5">
-            <div>
-              <label class="block text-sm font-bold text-slate-700" for="audience">Target audience</label>
-              <input id="audience" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="Example: Freelance designers who are not comfortable with accounting" />
-            </div>
-            <div>
-              <label class="block text-sm font-bold text-slate-700" for="goal">Primary goal</label>
-              <input id="goal" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="Example: Generate a complete beginner-friendly app plan" />
-            </div>
-          </div>
-        </div>
-
-        <div id="wizard-step-3" class="wizard-step rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <h2 class="font-display text-xl font-extrabold tracking-tight">Choose your AI and preferences</h2>
-              <p class="mt-2 text-sm leading-relaxed text-slate-600">We will adapt the final prompt to the AI you choose.</p>
-            </div>
-            <button type="button" onclick="openCoach('step3')" title="Need help?" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 hover:bg-indigo-100"><svg class="h-5 w-5" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg></button>
-          </div>
-          <p class="mt-7 text-sm font-bold text-slate-700">Optimize for</p>
-          <div class="mt-3 flex flex-wrap gap-2">
+        <div id="wizard-step-3" class="wizard-step rounded-3xl border bg-white p-8 shadow-sm">
+          <h2 class="font-display text-xl font-extrabold">Choose your AI</h2>
+          <div class="mt-4 flex flex-wrap gap-2">
             <button type="button" onclick="selectAI(this,'ChatGPT')" class="ai-option rounded-full border-2 border-indigo-600 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700">ChatGPT</button>
-            <button type="button" onclick="selectAI(this,'Claude')" class="ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Claude</button>
-            <button type="button" onclick="selectAI(this,'Gemini')" class="ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Gemini</button>
-            <button type="button" onclick="selectAI(this,'Copilot')" class="ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Copilot</button>
-            <button type="button" onclick="selectAI(this,'Universal')" class="ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Universal</button>
+            <button type="button" onclick="selectAI(this,'Claude')" class="ai-option rounded-full border px-4 py-2 text-sm font-bold">Claude</button>
+            <button type="button" onclick="selectAI(this,'Gemini')" class="ai-option rounded-full border px-4 py-2 text-sm font-bold">Gemini</button>
+            <button type="button" onclick="selectAI(this,'Copilot')" class="ai-option rounded-full border px-4 py-2 text-sm font-bold">Copilot</button>
+            <button type="button" onclick="selectAI(this,'Universal')" class="ai-option rounded-full border px-4 py-2 text-sm font-bold">Universal</button>
           </div>
-          <div class="mt-7">
-            <label class="block text-sm font-bold text-slate-700" for="tech-stack">Technology preferences <span class="font-medium text-slate-400">(optional)</span></label>
-            <input id="tech-stack" type="text" class="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3.5 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="Example: Next.js, TypeScript, PostgreSQL, mobile-first design" />
-          </div>
+          <input id="tech-stack" class="mt-4 w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm" placeholder="Tech stack (optional)" />
         </div>
-
-        <div class="mt-6 flex items-center justify-between">
-          <button id="wizard-back" type="button" onclick="changeWizardStep(-1)" disabled class="rounded-xl px-5 py-3 text-sm font-bold text-slate-600 transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-0">Back</button>
-          <button id="wizard-next" type="button" onclick="changeWizardStep(1)" class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white shadow-lg shadow-indigo-500/25 transition hover:-translate-y-0.5 hover:bg-indigo-700">Next</button>
+        <div class="mt-6 flex justify-between">
+          <button id="wizard-back" type="button" onclick="changeWizardStep(-1)" disabled class="px-5 py-3 text-sm font-bold disabled:opacity-0">Back</button>
+          <button id="wizard-next" type="button" onclick="changeWizardStep(1)" class="rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white">Next</button>
         </div>
       </div>
     </section>
 
-    <!-- RESULTS -->
-    <section id="view-results" class="view min-h-[calc(100vh-72px)] bg-slate-50">
-      <div class="mx-auto max-w-4xl px-4 py-12 sm:px-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
+    <section id="view-results" class="view min-h-[80vh] px-4 py-12">
+      <div class="mx-auto max-w-4xl">
+        <div class="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p class="text-sm font-bold text-indigo-600">Generation complete</p>
-            <h1 class="mt-1 font-display text-3xl font-extrabold tracking-tight text-slate-950">Your optimized prompts</h1>
-            <p id="results-ai-label" class="mt-2 text-slate-600">Three prompt styles optimized for ChatGPT.</p>
+            <h1 class="font-display text-3xl font-extrabold">Your optimized prompts</h1>
+            <p id="results-ai-label" class="text-slate-600">Optimized for ChatGPT.</p>
           </div>
-          <div class="flex flex-wrap gap-2">
-            <button type="button" onclick="sendResultsToSandbox()" class="rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 hover:bg-indigo-50">Compare in Sandbox</button>
-            <button type="button" onclick="showView('wizard')" class="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">Create another</button>
+          <div class="flex gap-2">
+            <button type="button" onclick="sendResultsToSandbox()" class="rounded-xl border px-4 py-2 text-sm font-bold text-indigo-700">Compare in Sandbox</button>
+            <button type="button" onclick="showView('wizard')" class="rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Create another</button>
           </div>
         </div>
-
-        <div class="mt-8 space-y-5" id="results-cards">
-          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-              <div><span class="inline-flex rounded-lg border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-xs font-extrabold tracking-wide text-indigo-700">ESSENTIAL</span><p class="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Fast, clear, and direct</p></div>
+        <div id="results-cards" class="mt-8 space-y-5">
+          <article class="rounded-3xl border bg-white p-6 shadow-sm">
+            <div class="flex justify-between"><span class="text-xs font-extrabold text-indigo-700">ESSENTIAL</span>
               <div class="flex gap-2">
-                <button type="button" onclick="copyPrompt(0)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button>
-                <button type="button" onclick="toggleBreakdown(0)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Why it works</button>
+                <button type="button" onclick="copyPrompt(0)" class="rounded-lg border px-3 py-1 text-xs font-bold">Copy</button>
+                <button type="button" onclick="toggleBreakdown(0)" class="rounded-lg border px-3 py-1 text-xs font-bold">Why it works</button>
               </div>
             </div>
-            <pre id="prompt-0" class="mt-5 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-700">Your generated prompt will appear here.</pre>
-            <button id="refine-btn-0" type="button" onclick="refinePrompt(0)" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">Refine this version</button>
-            <div id="breakdown-0" class="hidden mt-4 rounded-2xl border border-indigo-100 bg-indigo-50/70 p-4"></div>
+            <pre id="prompt-0" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
+            <button id="refine-btn-0" type="button" onclick="refinePrompt(0)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
+            <div id="breakdown-0" class="mt-3 hidden rounded-2xl bg-indigo-50 p-4 text-sm"></div>
           </article>
-
-          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-              <div><span class="inline-flex rounded-lg border border-violet-100 bg-violet-50 px-2.5 py-1 text-xs font-extrabold tracking-wide text-violet-700">COMPREHENSIVE</span><p class="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">More context and guidance</p></div>
+          <article class="rounded-3xl border bg-white p-6 shadow-sm">
+            <div class="flex justify-between"><span class="text-xs font-extrabold text-violet-700">COMPREHENSIVE</span>
               <div class="flex gap-2">
-                <button type="button" onclick="copyPrompt(1)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button>
-                <button type="button" onclick="toggleBreakdown(1)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Why it works</button>
+                <button type="button" onclick="copyPrompt(1)" class="rounded-lg border px-3 py-1 text-xs font-bold">Copy</button>
+                <button type="button" onclick="toggleBreakdown(1)" class="rounded-lg border px-3 py-1 text-xs font-bold">Why it works</button>
               </div>
             </div>
-            <pre id="prompt-1" class="mt-5 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-700">Your generated prompt will appear here.</pre>
-            <button id="refine-btn-1" type="button" onclick="refinePrompt(1)" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">Refine this version</button>
-            <div id="breakdown-1" class="hidden mt-4 rounded-2xl border border-violet-100 bg-violet-50/70 p-4"></div>
+            <pre id="prompt-1" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
+            <button id="refine-btn-1" type="button" onclick="refinePrompt(1)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
+            <div id="breakdown-1" class="mt-3 hidden rounded-2xl bg-violet-50 p-4 text-sm"></div>
           </article>
-
-          <article class="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div class="flex flex-wrap items-start justify-between gap-4">
-              <div><span class="inline-flex rounded-lg border border-sky-100 bg-sky-50 px-2.5 py-1 text-xs font-extrabold tracking-wide text-sky-700">STRUCTURED</span><p class="mt-2 text-xs font-bold uppercase tracking-wider text-slate-400">Maximum control and repeatability</p></div>
+          <article class="rounded-3xl border bg-white p-6 shadow-sm">
+            <div class="flex justify-between"><span class="text-xs font-extrabold text-sky-700">STRUCTURED</span>
               <div class="flex gap-2">
-                <button type="button" onclick="copyPrompt(2)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Copy</button>
-                <button type="button" onclick="toggleBreakdown(2)" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">Why it works</button>
+                <button type="button" onclick="copyPrompt(2)" class="rounded-lg border px-3 py-1 text-xs font-bold">Copy</button>
+                <button type="button" onclick="toggleBreakdown(2)" class="rounded-lg border px-3 py-1 text-xs font-bold">Why it works</button>
               </div>
             </div>
-            <pre id="prompt-2" class="mt-5 max-h-64 overflow-y-auto whitespace-pre-wrap rounded-2xl border border-slate-100 bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-700">Your generated prompt will appear here.</pre>
-            <button id="refine-btn-2" type="button" onclick="refinePrompt(2)" class="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white hover:bg-slate-800">Refine this version</button>
-            <div id="breakdown-2" class="hidden mt-4 rounded-2xl border border-sky-100 bg-sky-50/70 p-4"></div>
+            <pre id="prompt-2" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
+            <button id="refine-btn-2" type="button" onclick="refinePrompt(2)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
+            <div id="breakdown-2" class="mt-3 hidden rounded-2xl bg-sky-50 p-4 text-sm"></div>
           </article>
         </div>
       </div>
     </section>
 
-    <!-- IMPROVE -->
-    <section id="view-improve" class="view min-h-[calc(100vh-72px)] bg-slate-50">
-      <div class="mx-auto max-w-3xl px-4 py-12 sm:px-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold text-indigo-600">Prompt improvement</p>
-            <h1 class="mt-1 font-display text-3xl font-extrabold tracking-tight text-slate-950">Improve an existing prompt</h1>
-            <p class="mt-2 max-w-2xl text-slate-600">Paste a prompt you already use. PromptForge identifies weaknesses and gives you three stronger alternatives.</p>
-          </div>
-          <button type="button" onclick="openCoach('improve')" class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm hover:bg-indigo-50">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg>
-            Ask the Coach
-          </button>
+    <section id="view-improve" class="view min-h-[80vh] px-4 py-12">
+      <div class="mx-auto max-w-3xl">
+        <h1 class="font-display text-3xl font-extrabold">Improve an existing prompt</h1>
+        <textarea id="existing-prompt" class="mt-6 h-48 w-full rounded-2xl border bg-white p-4 font-mono text-sm" placeholder="Paste a prompt..."></textarea>
+        <div class="mt-4 flex flex-wrap gap-2">
+          <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Too vague</button>
+          <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Ignores constraints</button>
+          <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Wrong tone</button>
+          <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Inconsistent results</button>
         </div>
-        <div class="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <label for="existing-prompt" class="block text-sm font-bold text-slate-700">Current prompt</label>
-          <textarea id="existing-prompt" class="mt-2 h-48 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 font-mono text-sm leading-relaxed outline-none placeholder:font-sans placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100" placeholder="Paste the prompt you want to improve..."></textarea>
-          <div class="mt-6">
-            <p class="text-sm font-bold text-slate-700">What is not working?</p>
-            <div class="mt-3 flex flex-wrap gap-2">
-              <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Too vague</button>
-              <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Ignores constraints</button>
-              <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Wrong tone</button>
-              <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Inconsistent results</button>
-              <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border border-slate-200 px-3 py-2 text-sm font-bold text-slate-600 hover:bg-slate-50">Too long</button>
-            </div>
-          </div>
-          <button id="improve-btn" type="button" onclick="improveReal()" class="mt-7 w-full rounded-xl bg-indigo-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700">Generate improved prompts</button>
+        <button id="improve-btn" type="button" onclick="improveReal()" class="mt-6 w-full rounded-xl bg-indigo-600 py-3 font-bold text-white">Generate improved prompts</button>
+      </div>
+    </section>
+
+    <section id="view-sandbox" class="view min-h-[80vh] px-4 py-12">
+      <div class="mx-auto max-w-6xl">
+        <h1 class="font-display text-3xl font-extrabold">Prompt sandbox</h1>
+        <textarea id="sandbox-message" class="mt-4 h-24 w-full rounded-2xl border p-4 text-sm">Create a simple mobile-friendly dashboard layout.</textarea>
+        <div class="mt-4 grid gap-4 md:grid-cols-3">
+          <textarea id="sandbox-prompt-0" class="h-40 rounded-2xl border p-3 font-mono text-xs" placeholder="Prompt 1"></textarea>
+          <textarea id="sandbox-prompt-1" class="h-40 rounded-2xl border p-3 font-mono text-xs" placeholder="Prompt 2"></textarea>
+          <textarea id="sandbox-prompt-2" class="h-40 rounded-2xl border p-3 font-mono text-xs" placeholder="Prompt 3"></textarea>
+        </div>
+        <button id="sandbox-btn" type="button" onclick="runSandbox()" class="mt-4 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white">Compare outputs</button>
+        <div id="sandbox-results" class="mt-6 hidden grid gap-4 md:grid-cols-3">
+          <p id="sb-out-0" class="rounded-2xl border bg-white p-4 text-sm">—</p>
+          <p id="sb-out-1" class="rounded-2xl border bg-white p-4 text-sm">—</p>
+          <p id="sb-out-2" class="rounded-2xl border bg-white p-4 text-sm">—</p>
         </div>
       </div>
     </section>
 
-    <!-- SANDBOX -->
-    <section id="view-sandbox" class="view min-h-[calc(100vh-72px)] bg-slate-50">
-      <div class="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p class="text-sm font-bold text-indigo-600">Prompt testing</p>
-            <h1 class="mt-1 font-display text-3xl font-extrabold tracking-tight text-slate-950">Prompt sandbox</h1>
-            <p class="mt-2 max-w-2xl text-slate-600">Test up to three prompts against the same message and compare real answers side-by-side.</p>
-          </div>
-          <button type="button" onclick="openCoach('sandbox')" class="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-white px-4 py-2.5 text-sm font-bold text-indigo-700 shadow-sm hover:bg-indigo-50">
-            <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="m12 2 2.5 7.5L22 12l-7.5 2.5L12 22l-2.5-7.5L2 12l7.5-2.5L12 2Z"/></svg>
-            Ask the Coach
-          </button>
-        </div>
-        <div class="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <label for="sandbox-message" class="block text-sm font-bold text-slate-700">Test message</label>
-          <textarea id="sandbox-message" class="mt-2 h-24 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100">Create a simple mobile-friendly dashboard layout.</textarea>
-          <div class="mt-7 grid gap-4 md:grid-cols-3">
-            <div><label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Essential</label><textarea id="sandbox-prompt-0" class="mt-2 h-44 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="Paste Prompt 1 here..."></textarea></div>
-            <div><label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Comprehensive</label><textarea id="sandbox-prompt-1" class="mt-2 h-44 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="Paste Prompt 2 here..."></textarea></div>
-            <div><label class="text-xs font-extrabold uppercase tracking-wider text-slate-500">Structured</label><textarea id="sandbox-prompt-2" class="mt-2 h-44 w-full resize-none rounded-2xl border border-slate-200 bg-slate-50 p-3 font-mono text-xs outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-100" placeholder="Paste Prompt 3 here..."></textarea></div>
-          </div>
-          <button id="sandbox-btn" type="button" onclick="runSandbox()" class="mt-6 rounded-xl bg-slate-900 px-6 py-3 font-bold text-white shadow-md hover:bg-slate-800">Compare outputs</button>
-        </div>
-        <div id="sandbox-results" class="hidden mt-6">
-          <div class="mb-3 flex items-center gap-2 text-sm text-slate-500"><span class="h-2 w-2 rounded-full bg-emerald-500"></span> Real outputs from your connected AI.</div>
-          <div class="grid gap-4 md:grid-cols-3">
-            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-extrabold uppercase tracking-wider text-indigo-600">Essential</p><p id="sb-out-0" class="mt-3 text-sm leading-relaxed text-slate-700">—</p></article>
-            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-extrabold uppercase tracking-wider text-violet-600">Comprehensive</p><p id="sb-out-1" class="mt-3 text-sm leading-relaxed text-slate-700">—</p></article>
-            <article class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><p class="text-xs font-extrabold uppercase tracking-wider text-sky-600">Structured</p><p id="sb-out-2" class="mt-3 text-sm leading-relaxed text-slate-700">—</p></article>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- PRICING -->
-    <section id="view-pricing" class="view min-h-[calc(100vh-72px)] bg-slate-50">
-      <div class="mx-auto max-w-5xl px-4 py-16 sm:px-6">
-        <div class="text-center">
-          <p class="text-sm font-bold text-indigo-600">Simple, transparent pricing</p>
-          <h1 class="mt-2 font-display text-4xl font-extrabold tracking-tight text-slate-950">Free today. Pro later.</h1>
-          <p class="mx-auto mt-4 max-w-2xl text-slate-600">Right now PromptForge is free: bring your own OpenAI key and everything works. A Pro tier with accounts, cloud history, and hosted AI is coming.</p>
-        </div>
-        <div class="mt-10 grid gap-6 md:grid-cols-2">
-          <article class="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-            <h2 class="font-display text-xl font-extrabold">Free — available now</h2>
-            <p class="mt-3 font-display text-5xl font-extrabold tracking-tight">$0</p>
-            <p class="mt-1 text-sm text-slate-500">Plus your own AI usage.</p>
-            <ul class="mt-7 space-y-4 text-sm text-slate-700">
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Wizard, Improve, Refine, Coach, and Sandbox</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Three prompt variants with explanations</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Saved profiles in your browser</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Your key never leaves your browser</li>
-            </ul>
-            <button type="button" onclick="showView('wizard')" class="mt-8 w-full rounded-xl border border-slate-200 px-5 py-3 font-bold text-slate-700 hover:bg-slate-50">Start building</button>
-          </article>
-          <article class="relative overflow-hidden rounded-3xl border-2 border-indigo-600 bg-white p-8 shadow-xl shadow-indigo-500/15">
-            <div class="absolute right-0 top-0 rounded-bl-2xl bg-gradient-to-r from-indigo-600 to-violet-600 px-4 py-2 text-xs font-extrabold text-white">COMING IN V2</div>
-            <h2 class="font-display text-xl font-extrabold">PromptForge Pro</h2>
-            <p class="mt-3 font-display text-5xl font-extrabold tracking-tight">$9<span class="text-lg font-bold text-slate-500">/month</span></p>
-            <p class="mt-1 text-sm text-slate-500">For people who build prompts often.</p>
-            <ul class="mt-7 space-y-4 text-sm text-slate-700">
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Accounts and cloud-synced profiles</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Hosted AI — no API key needed</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Full generation history</li>
-              <li class="flex gap-3"><span class="font-bold text-indigo-600">✓</span> Higher sandbox limits</li>
-            </ul>
-            <button type="button" onclick="showToast('Pro is planned for the backend build. The free version is fully working today.')" class="mt-8 w-full rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white shadow-lg shadow-indigo-500/25 hover:bg-indigo-700">Join the waitlist</button>
-          </article>
-        </div>
-      </div>
+    <section id="view-pricing" class="view min-h-[80vh] px-4 py-16 text-center">
+      <h1 class="font-display text-4xl font-extrabold">Free today</h1>
+      <p class="mx-auto mt-3 max-w-xl text-slate-600">PromptForge uses a server key. You do not need to paste a key in the browser.</p>
+      <button type="button" onclick="showView('wizard')" class="mt-8 rounded-xl bg-indigo-600 px-6 py-3 font-bold text-white">Start building</button>
     </section>
   </main>
 
-  <div id="toast" class="toast fixed bottom-5 left-1/2 z-[60] max-w-[90vw] rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white shadow-xl"></div>
+  <div id="toast" class="toast fixed bottom-5 left-1/2 z-[60] rounded-xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white"></div>
 
   <script>
     var currentWizardStep = 1;
     var selectedAI = "ChatGPT";
     var toastTimer;
     var coachContextName = "landing";
-    var coachHistory = [];
-
-    // GLOBAL HUMAN PERSONA PROMPT - Applies to ALL AI interactions
-    const HUMAN_PERSONA = "You are PromptForge's Senior AI Mentor. You are witty, empathetic, and highly skilled. Never sound robotic or generic. Use analogies, vary your sentence structure, and adapt your tone to the user's context. If a user asks the same question twice, give a completely different answer with a fresh perspective. Be encouraging but direct. Act like a senior colleague mentoring a junior developer.";
-
-    // Helper function to build messages with the human persona
-    function buildMessageWithPersona(userText, context = "") {
-      const fullPrompt = `${HUMAN_PERSONA}\n\nCurrent Context: ${context || 'General Conversation'}\n\nUser Question/Task: ${userText}`;
-      return [
-        { role: "system", content: "Answer based on the persona and context provided." },
-        { role: "user", content: fullPrompt }
-      ];
-    }
-
-    var coachContexts = {
-      landing: { label: "Product overview", chips: ["What is a prompt?", "Which AI is best for coding?", "Can I use this for marketing?"] },
-      wizard: { label: "Wizard guidance", chips: ["Help me describe my idea", "What makes a good prompt?", "How detailed should I be?"] },
-      step1: { label: "Step 1: Project description", chips: ["Give me an example", "Help me describe my idea", "How detailed should I be?"] },
-      step2: { label: "Step 2: Audience and goal", chips: ["What is a target audience?", "Help me define a goal", "Give me an example"] },
-      step3: { label: "Step 3: AI preferences", chips: ["ChatGPT vs Claude", "What is a tech stack?", "Which AI is best for writing?"] },
-      improve: { label: "Prompt improvement", chips: ["Why are my outputs inconsistent?", "How can I add constraints?", "What makes a prompt too vague?"] },
-      sandbox: { label: "Prompt sandbox", chips: ["How should I compare prompts?", "What test message should I use?", "Why test multiple variants?"] }
-    };
 
     function esc(v) {
       var el = document.createElement("div");
       el.textContent = v == null ? "" : String(v);
       return el.innerHTML;
     }
-
-    function showToast(message) {
-      var toast = document.getElementById("toast");
-      toast.textContent = message;
-      toast.classList.add("show");
+    function showToast(m) {
+      var t = document.getElementById("toast");
+      t.textContent = m;
+      t.classList.add("show");
       clearTimeout(toastTimer);
-      toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 3600);
+      toastTimer = setTimeout(function () { t.classList.remove("show"); }, 3600);
     }
-
-    function showView(viewId) {
+    function showView(id) {
       document.querySelectorAll(".view").forEach(function (v) { v.classList.remove("active"); });
-      var el = document.getElementById("view-" + viewId);
-      if (el) el.classList.add("active");
+      document.getElementById("view-" + id).classList.add("active");
       document.querySelectorAll(".nav-link").forEach(function (b) { b.classList.remove("active"); });
-      var nav = document.querySelector('[data-nav="' + viewId + '"]');
-      if (nav) nav.classList.add("active");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      var n = document.querySelector('[data-nav="' + id + '"]');
+      if (n) n.classList.add("active");
+      window.scrollTo(0, 0);
+    }
+    function setLoading(btn, on, busy, done) {
+      if (!btn) return;
+      if (on) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = busy; }
+      else { btn.disabled = false; btn.textContent = done || btn.dataset.old || "Done"; }
+    }
+    function toggleAppsDropdown() {
+      document.getElementById("apps-dropdown-panel").classList.toggle("hidden");
     }
 
-    /* ---------- KEY MANAGEMENT ---------- */
-    function getKey() { return localStorage.getItem("pf_openai_key") || ""; }
-    function openSettings() {
-      document.getElementById("key-input").value = getKey();
-      document.getElementById("settings-overlay").classList.add("open");
-      updateKeyStatus();
-    }
-    function closeSettings() { document.getElementById("settings-overlay").classList.remove("open"); }
-    function saveKey() {
-      var value = document.getElementById("key-input").value.trim();
-      if (!value) { showToast("Paste your key first."); return; }
-      localStorage.setItem("pf_openai_key", value);
-      updateKeyStatus();
-      closeSettings();
-      showToast("AI connected. Your key stays in this browser only.");
-    }
-    function removeKey() {
-      localStorage.removeItem("pf_openai_key");
-      document.getElementById("key-input").value = "";
-      updateKeyStatus();
-      showToast("Key removed from this browser.");
-    }
-    function updateKeyStatus() {
-      var has = !!getKey();
-      document.getElementById("key-dot").className = "h-2 w-2 rounded-full " + (has ? "bg-emerald-500" : "bg-slate-300");
-      document.getElementById("key-label").textContent = has ? "AI Connected" : "Connect AI";
-      document.getElementById("key-status").textContent = has ? "Connected. Ready to generate." : "Not connected yet.";
-    }
-
-    /* ---------- AI CALL (UPDATED TEMP TO 0.9) ---------- */
-      function callAI(messages, extra) {
+    function callAI(messages, extra) {
       return fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: messages, extra: extra || null })
       }).then(function (res) {
         return res.json().then(function (data) {
-          if (!res.ok) {
-            throw new Error(data.error || ("Server error " + res.status));
-          }
-          if (!data.content) {
-            throw new Error("Empty response from AI.");
-          }
+          if (!res.ok) throw new Error(data.error || ("Server error " + res.status));
+          if (!data.content) throw new Error("Empty response from AI.");
           return data.content;
         });
-      }).catch(function (err) {
-        if (err.message && err.message.toLowerCase().indexOf("failed to fetch") !== -1) {
-          throw new Error("Could not reach the PromptForge server. Refresh and try again.");
-        }
-        throw err;
       });
     }
-    function setLoading(btn, on, busyText, doneText) {
-      if (!btn) return;
-      if (on) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = busyText; btn.classList.add("opacity-70", "cursor-not-allowed"); }
-      else { btn.disabled = false; btn.textContent = doneText || btn.dataset.old || "Done"; btn.classList.remove("opacity-70", "cursor-not-allowed"); }
+
+    function extractJSON(content) {
+      var s = String(content || "").trim();
+      s = s.replace(/```json/gi, "").replace(/```/g, "");
+      var a = s.indexOf("{");
+      var b = s.lastIndexOf("}");
+      if (a === -1 || b <= a) throw new Error("No JSON in reply");
+      return JSON.parse(s.slice(a, b + 1));
     }
 
-    /* ---------- WIZARD ---------- */
-    function changeWizardStep(direction) {
-      var current = document.getElementById("wizard-step-" + currentWizardStep);
-      if (current) current.classList.remove("active");
-      currentWizardStep += direction;
+    function threeFromText(content) {
+      var t = String(content || "").trim();
+      return [
+        { label: "Essential", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Model reply (plain text fallback).", technical_details: [] } },
+        { label: "Comprehensive", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Same reply shown in all cards because JSON was missing.", technical_details: [] } },
+        { label: "Structured", target_ai: selectedAI, prompt_text: t, effectiveness: { plain_language: "Same reply shown in all cards because JSON was missing.", technical_details: [] } }
+      ];
+    }
+
+    function changeWizardStep(dir) {
+      var cur = document.getElementById("wizard-step-" + currentWizardStep);
+      if (cur) cur.classList.remove("active");
+      currentWizardStep += dir;
       if (currentWizardStep > 3) {
         currentWizardStep = 3;
         document.getElementById("wizard-step-3").classList.add("active");
@@ -591,357 +307,195 @@
         return;
       }
       if (currentWizardStep < 1) currentWizardStep = 1;
-      var next = document.getElementById("wizard-step-" + currentWizardStep);
-      if (next) next.classList.add("active");
+      document.getElementById("wizard-step-" + currentWizardStep).classList.add("active");
       updateWizardUI();
     }
-
     function updateWizardUI() {
-      var percent = Math.round((currentWizardStep / 3) * 100);
-      document.getElementById("wizard-progress").style.width = percent + "%";
+      var p = Math.round((currentWizardStep / 3) * 100);
+      document.getElementById("wizard-progress").style.width = p + "%";
       document.getElementById("step-label").textContent = "Step " + currentWizardStep + " of 3";
-      document.getElementById("step-percent").textContent = percent + "% complete";
       document.getElementById("wizard-back").disabled = currentWizardStep === 1;
       document.getElementById("wizard-next").textContent = currentWizardStep === 3 ? "Generate prompts" : "Next";
     }
-
-    function selectAI(button, ai) {
+    function selectAI(btn, ai) {
       selectedAI = ai;
-      document.querySelectorAll(".ai-option").forEach(function (item) {
-        item.className = "ai-option rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-600 transition hover:bg-slate-50";
+      document.querySelectorAll(".ai-option").forEach(function (el) {
+        el.className = "ai-option rounded-full border px-4 py-2 text-sm font-bold";
       });
-      button.className = "ai-option rounded-full border-2 border-indigo-600 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700";
-      document.getElementById("results-ai-label").textContent = "Three prompt styles optimized for " + selectedAI + ".";
+      btn.className = "ai-option rounded-full border-2 border-indigo-600 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700";
+      document.getElementById("results-ai-label").textContent = "Optimized for " + selectedAI + ".";
     }
 
     function generateFromWizard() {
       var desc = document.getElementById("project-description").value.trim();
+      if (!desc) { showToast("Describe your project first."); return; }
       var audience = document.getElementById("audience").value.trim();
       var goal = document.getElementById("goal").value.trim();
       var stack = document.getElementById("tech-stack").value.trim();
-
-      if (!desc) { showToast("Please describe your project first."); return; }
-
       setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
-
-      var wizardSystemMsg = "You are PromptForge's Senior AI Mentor. Generate exactly THREE distinct prompt variants (Essential, Comprehensive, Structured) for the user's request. Each variant must be tailored to " + selectedAI + ". Return ONLY valid JSON matching the schema provided below. Do not add markdown formatting. Schema: { \"variants\": [ {\"label\":\"Essential\", \"target_ai\":\"CHATGPT\", \"prompt_text\":\"...\", \"effectiveness\":{\"plain_language\":\"...\", \"technical_details\":[\"...\"]} }, ... ] }";
-      
-      var wizardUserMsg = "Project: " + desc + ". Target Audience: " + (audience || "Not specified") + ". Goal: " + (goal || "Not specified") + ". Tech Stack: " + (stack || "Not specified") + ". Please generate 3 variants.";
-
-      callAI(buildMessageWithPersona(wizardUserMsg, "Wizard Generation"))
-        .then(function(content) {
-          try {
-            // Try to parse if the AI returned JSON directly, otherwise try to extract
-            let parsed;
-            if(content.includes("```json")) {
-               content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-            }
-            parsed = JSON.parse(content);
-            
-            if(!parsed.variants || parsed.variants.length !== 3) {
-               throw new Error("Invalid JSON structure from AI");
-            }
-
-            renderResults(parsed.variants);
-            showView("results");
-            showToast("Three prompts generated successfully.");
-          } catch(e) {
-            console.error("Parse error:", e);
-            alert("The AI generated text instead of JSON. Please try regenerating.");
-          } finally {
-            setLoading(document.getElementById("wizard-next"), false, "", "Generate prompts");
-          }
-        })
-        .catch(function(err) {
-          console.error(err);
-          showToast("Generation failed: " + err.message);
-          setLoading(document.getElementById("wizard-next"), false, "", "Generate prompts");
-        });
+      var user =
+        "Create exactly 3 prompt variants for " + selectedAI + ".\n" +
+        "Return ONLY JSON: {\"variants\":[{\"label\":\"Essential\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Comprehensive\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Structured\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}}]}\n" +
+        "Project: " + desc + "\nAudience: " + (audience || "n/a") + "\nGoal: " + (goal || "n/a") + "\nTech: " + (stack || "n/a");
+      callAI(
+        [
+          { role: "system", content: "Output valid JSON only. No markdown." },
+          { role: "user", content: user }
+        ],
+        { response_format: { type: "json_object" }, temperature: 0.3 }
+      ).then(function (content) {
+        var parsed;
+        try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
+        if (!parsed.variants || !parsed.variants.length) parsed = { variants: threeFromText(content) };
+        renderResults(parsed.variants);
+        showView("results");
+        showToast("Prompts ready.");
+      }).catch(function (err) {
+        alert("Generation failed: " + err.message);
+      }).then(function () {
+        setLoading(document.getElementById("wizard-next"), false, "", "Generate prompts");
+      });
     }
 
     function renderResults(variants) {
       for (var i = 0; i < 3; i++) {
         if (!variants[i]) continue;
-        document.getElementById("prompt-" + i).textContent = variants[i].prompt_text;
-        
+        document.getElementById("prompt-" + i).textContent = variants[i].prompt_text || "";
         var eff = variants[i].effectiveness || {};
-        var effHtml = "<p class='font-medium'>" + esc(eff.plain_language) + "</p>";
-        if(eff.technical_details && eff.technical_details.length > 0) {
-          effHtml += "<details class='mt-2'><summary class='cursor-pointer font-medium'>Technical details</summary><ul class='list-disc pl-5 mt-2 space-y-1'>";
-          eff.technical_details.forEach(function(d) {
-            effHtml += "<li>" + esc(d) + "</li>";
-          });
-          effHtml += "</ul></details>";
+        var html = "<p>" + esc(eff.plain_language || "") + "</p>";
+        if (eff.technical_details && eff.technical_details.length) {
+          html += "<ul class='mt-2 list-disc pl-5 text-xs'>";
+          eff.technical_details.forEach(function (d) { html += "<li>" + esc(d) + "</li>"; });
+          html += "</ul>";
         }
-        document.getElementById("breakdown-" + i).innerHTML = effHtml;
+        document.getElementById("breakdown-" + i).innerHTML = html;
       }
     }
-
-    function copyPrompt(index) {
-      var text = document.getElementById("prompt-" + index).textContent;
-      navigator.clipboard.writeText(text)
-        .then(function() { showToast("Prompt copied!"); })
-        .catch(function() { showToast("Select the prompt and press Ctrl+C"); });
+    function copyPrompt(i) {
+      navigator.clipboard.writeText(document.getElementById("prompt-" + i).textContent).then(function () { showToast("Copied"); });
     }
-
-    function toggleBreakdown(index) {
-      var el = document.getElementById("breakdown-" + index);
-      el.classList.toggle("hidden");
+    function toggleBreakdown(i) {
+      document.getElementById("breakdown-" + i).classList.toggle("hidden");
     }
-
-    function refinePrompt(index) {
-      var btn = document.getElementById("refine-btn-" + index);
-      var promptEl = document.getElementById("prompt-" + index);
-      var originalText = btn.innerHTML;
-      
-      setLoading(btn, true, "Refining...", "Refined!");
-      
-      var currentPrompt = promptEl.textContent;
-      var refineSystemMsg = "You are PromptForge's Senior AI Mentor. Refine the following prompt to make it clearer, more specific, and more effective for " + selectedAI + ". Keep the original intent but improve the structure and constraints. Return ONLY the refined prompt text.";
-      
-      callAI(buildMessageWithPersona("Refine this prompt: " + currentPrompt, "Refinement Task"))
-        .then(function(content) {
-          promptEl.textContent = content;
-          btn.innerHTML = "<svg class='h-4 w-4' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2.8'><path stroke-linecap='round' stroke-linejoin='round' d='M5 13l4 4L19 7'/></svg> Refined!";
-          btn.classList.remove("bg-slate-900", "hover:bg-slate-800");
-          btn.classList.add("bg-green-600", "hover:bg-green-700");
-          
-          setTimeout(function() {
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            btn.classList.remove("opacity-70", "cursor-not-allowed", "bg-green-600", "hover:bg-green-700");
-            btn.classList.add("bg-slate-900", "hover:bg-slate-800");
-          }, 2500);
-        })
-        .catch(function(err) {
-          alert("Refinement failed: " + err.message);
-          btn.innerHTML = originalText;
-          btn.disabled = false;
-          btn.classList.remove("opacity-70", "cursor-not-allowed");
-        });
-    }
-
-    /* ---------- IMPROVE PAGE ---------- */
-    function improveReal() {
-      var promptText = document.getElementById("existing-prompt").value.trim();
-      if(!promptText) { showToast("Please paste a prompt first."); return; }
-
-      var issues = [];
-      document.querySelectorAll('.issue-pill').forEach(function(pill) {
-        if(pill.classList.contains("bg-indigo-600")) issues.push(pill.textContent);
+    function refinePrompt(i) {
+      var btn = document.getElementById("refine-btn-" + i);
+      var el = document.getElementById("prompt-" + i);
+      setLoading(btn, true, "Refining...", "Refine this version");
+      callAI([
+        { role: "system", content: "Return only the refined prompt text." },
+        { role: "user", content: "Refine for " + selectedAI + ":\n" + el.textContent }
+      ]).then(function (c) {
+        el.textContent = c;
+        showToast("Refined");
+      }).catch(function (e) { alert(e.message); }).then(function () {
+        setLoading(btn, false, "", "Refine this version");
       });
-
-      setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
-
-      var systemMsg = "You are PromptForge's Senior AI Mentor. Analyze the user's existing prompt and the pain points they listed. Generate exactly THREE improved variants labeled Essential, Comprehensive, and Structured. Each variant must include label, target_ai, prompt_text, and effectiveness. Return ONLY valid JSON. Pain points: " + issues.join(", ");
-
-      var userMsg = "Target AI: " + selectedAI + ". Existing Prompt: " + promptText;
-
-      callAI(buildMessageWithPersona(userMsg, "Improvement Task"))
-        .then(function(content) {
-          try {
-             if(content.includes("```json")) content = content.replace(/```json/g, '').replace(/```/g, '').trim();
-             var parsed = JSON.parse(content);
-             if(!parsed.variants || parsed.variants.length !== 3) throw new Error("Invalid JSON");
-             
-             renderResults(parsed.variants);
-             showView("results");
-             showToast("Improved prompts generated!");
-          } catch(e) {
-             console.error(e);
-             alert("Improvement failed to return JSON.");
-          } finally {
-            setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
-          }
-        })
-        .catch(function(err) {
-          showToast("Improvement failed: " + err.message);
-          setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
-        });
     }
 
     function togglePill(btn) {
       btn.classList.toggle("bg-indigo-600");
       btn.classList.toggle("text-white");
-      btn.classList.toggle("border-indigo-600");
-      btn.classList.toggle("bg-white");
-      btn.classList.toggle("text-slate-600");
-      btn.classList.toggle("border-slate-200");
+    }
+    function improveReal() {
+      var promptText = document.getElementById("existing-prompt").value.trim();
+      if (!promptText) { showToast("Paste a prompt first."); return; }
+      var issues = [];
+      document.querySelectorAll(".issue-pill").forEach(function (p) {
+        if (p.classList.contains("bg-indigo-600")) issues.push(p.textContent);
+      });
+      setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
+      var user = "Improve this prompt. Issues: " + issues.join(", ") + "\nReturn ONLY JSON with variants Essential, Comprehensive, Structured as in the wizard schema.\nPrompt:\n" + promptText;
+      callAI(
+        [{ role: "system", content: "JSON only." }, { role: "user", content: user }],
+        { response_format: { type: "json_object" }, temperature: 0.3 }
+      ).then(function (content) {
+        var parsed;
+        try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
+        renderResults(parsed.variants || threeFromText(content));
+        showView("results");
+      }).catch(function (e) { alert("Improvement failed: " + e.message); }).then(function () {
+        setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
+      });
     }
 
-    /* ---------- SANDBOX ---------- */
     function sendResultsToSandbox() {
-      for(var i=0; i<3; i++) {
-        var source = document.getElementById("prompt-" + i).textContent;
-        if(source) document.getElementById("sandbox-prompt-" + i).value = source;
+      for (var i = 0; i < 3; i++) {
+        document.getElementById("sandbox-prompt-" + i).value = document.getElementById("prompt-" + i).textContent;
       }
       showView("sandbox");
-      showToast("Prompts sent to Sandbox!");
     }
-
     function runSandbox() {
       var msg = document.getElementById("sandbox-message").value.trim();
-      if(!msg) { showToast("Enter a test message first."); return; }
-      
-      var prompts = [];
-      for(var i=0; i<3; i++) {
-        prompts.push(document.getElementById("sandbox-prompt-" + i).value.trim());
-      }
-      if(prompts.every(function(p) { return p === ""; })) { showToast("Add at least one prompt."); return; }
-
+      var done = 0;
       setLoading(document.getElementById("sandbox-btn"), true, "Comparing...", "Compare outputs");
-      
-      // Run comparisons in parallel
-      var results = [null, null, null];
-      var completed = 0;
-
-      prompts.forEach(function(promptText, idx) {
-        if(!promptText) {
-           results[idx] = { output: "(No prompt entered)", error: null };
-           completed++;
-           checkCompletion();
-           return;
-        }
-
-        var sandboxSystemMsg = "You are PromptForge's Senior AI Mentor. Execute the following prompt exactly as written for the test message. Return ONLY the result/output of the prompt execution. Do not explain yourself.";
-        
-        callAI(buildMessageWithPersona("Execute this prompt for the test message: '" + msg + "'.\n\nPrompt to execute:\n" + promptText, "Sandbox Execution"))
-          .then(function(content) {
-            results[idx] = { output: content.substring(0, 400) + (content.length > 400 ? "..." : ""), error: null };
-            completed++;
-            checkCompletion();
-          })
-          .catch(function(err) {
-            results[idx] = { output: "", error: "Error: " + err.message };
-            completed++;
-            checkCompletion();
-          });
+      document.getElementById("sandbox-results").classList.remove("hidden");
+      [0, 1, 2].forEach(function (i) {
+        var p = document.getElementById("sandbox-prompt-" + i).value.trim();
+        var out = document.getElementById("sb-out-" + i);
+        if (!p) { out.textContent = "(empty)"; done++; if (done === 3) setLoading(document.getElementById("sandbox-btn"), false, "", "Compare outputs"); return; }
+        callAI([
+          { role: "system", content: "Execute the prompt. Return only the output." },
+          { role: "user", content: "Prompt:\n" + p + "\n\nTest:\n" + msg }
+        ]).then(function (c) { out.textContent = c.slice(0, 500); }).catch(function (e) { out.textContent = e.message; }).then(function () {
+          done++;
+          if (done === 3) setLoading(document.getElementById("sandbox-btn"), false, "", "Compare outputs");
+        });
       });
-
-      function checkCompletion() {
-        if(completed >= 3) {
-          document.getElementById("sb-out-0").textContent = results[0] ? (results[0].error || results[0].output) : "—";
-          document.getElementById("sb-out-1").textContent = results[1] ? (results[1].error || results[1].output) : "—";
-          document.getElementById("sb-out-2").textContent = results[2] ? (results[2].error || results[2].output) : "—";
-          
-          document.getElementById("sandbox-results").classList.remove("hidden");
-          setLoading(document.getElementById("sandbox-btn"), false, "", "Compare outputs");
-        }
-      }
     }
 
-    /* ---------- APP TOOLKIT DROPDOWN ---------- */
-    function toggleAppsDropdown() {
-      var panel = document.getElementById("apps-dropdown-panel");
-      var chevron = document.getElementById("apps-chevron");
-      panel.classList.toggle("hidden");
-      chevron.classList.toggle("rotate-180");
-    }
-
-    function openConnectedApp(appName) {
-      var urls = {
-        "NaturalWrite": "https://naturalwrite-nu.vercel.app/",
-        "Summa": "https://www.contentsummarize.com/"
-      };
-      var url = urls[appName];
-      if(url) window.open(url, "_blank");
-    }
-
-    /* ---------- COACH ---------- */
-    function openCoach(contextName) {
-      coachContextName = contextName;
-      var context = coachContexts[contextName] || coachContexts.landing;
-      
-      document.getElementById("coach-context-label").textContent = context.label;
-      document.getElementById("coach-messages").innerHTML = ''; // Clear old messages? Or keep history? Let's keep for now but maybe clear if needed
-      
-      // Add greeting if empty
-      if(document.getElementById("coach-messages").children.length === 0) {
-         addCoachMessage(context.greeting || "Hi! How can I help you build better prompts today?", false);
-      }
-      
-      renderCoachChips(context.chips);
+    var coachContexts = {
+      landing: { label: "Overview", chips: ["What is a prompt?", "Which AI is best for coding?"] },
+      wizard: { label: "Wizard", chips: ["Help me describe my idea", "What makes a good prompt?"] }
+    };
+    function openCoach(ctx) {
+      coachContextName = ctx;
+      var c = coachContexts[ctx] || coachContexts.landing;
+      document.getElementById("coach-context-label").textContent = c.label;
+      document.getElementById("coach-messages").innerHTML = "";
+      addCoachMessage("Ask me anything about building prompts.", false);
+      var box = document.getElementById("coach-chips");
+      box.innerHTML = "";
+      c.chips.forEach(function (chip) {
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "rounded-full border px-3 py-1 text-xs font-bold";
+        b.textContent = chip;
+        b.onclick = function () { sendCoachQuestion(chip); };
+        box.appendChild(b);
+      });
       document.getElementById("coach-drawer").classList.add("open");
       document.getElementById("coach-overlay").classList.add("open");
-      setTimeout(function() { document.getElementById("coach-input").focus(); }, 300);
     }
-
     function closeCoach() {
       document.getElementById("coach-drawer").classList.remove("open");
       document.getElementById("coach-overlay").classList.remove("open");
     }
-
-    function renderCoachChips(chips) {
-      var container = document.getElementById("coach-chips");
-      container.innerHTML = "";
-      chips.forEach(function(chip) {
-        var btn = document.createElement("button");
-        btn.type = "button";
-        btn.textContent = chip;
-        btn.className = "rounded-full border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100";
-        btn.onclick = function() { sendCoachQuestion(chip); };
-        container.appendChild(btn);
-      });
-    }
-
     function addCoachMessage(message, isUser) {
-      var container = document.getElementById("coach-messages");
       var row = document.createElement("div");
-      row.className = isUser ? "flex items-start justify-end gap-2.5" : "flex items-start gap-2.5";
-      
-      var avatar = isUser 
-        ? '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">YOU</div>' 
-        : '<div class="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-indigo-600 to-sky-500 text-[10px] font-bold text-white">AI</div>';
-      
-      var bubble = isUser 
-        ? '<div class="max-w-[82%] rounded-2xl rounded-tr-sm bg-indigo-600 px-4 py-3 text-sm leading-relaxed text-white">' + esc(message) + "</div>" 
-        : '<div class="max-w-[85%] rounded-2xl rounded-tl-sm bg-slate-100 px-4 py-3 text-sm leading-relaxed text-slate-700">' + esc(message) + "</div>";
-      
-      row.innerHTML = isUser ? bubble + avatar : avatar + bubble;
-      container.appendChild(row);
-      container.scrollTop = container.scrollHeight;
+      row.className = isUser ? "text-right" : "";
+      row.innerHTML = "<div class='inline-block max-w-[85%] rounded-2xl px-4 py-3 text-sm " + (isUser ? "bg-indigo-600 text-white" : "bg-slate-100") + "'>" + esc(message) + "</div>";
+      document.getElementById("coach-messages").appendChild(row);
     }
-
-    function sendCoachQuestion(question) {
-      addCoachMessage(question, true);
-      
-      var systemMsg = "You are PromptForge's Senior AI Mentor. Answer the user's question about prompts concisely and wittily. Context: " + coachContextName;
-      
-      callAI(buildMessageWithPersona(question, "Coach Query"))
-        .then(function(answer) {
-          addCoachMessage(answer, false);
-        })
-        .catch(function(err) {
-          addCoachMessage("Sorry, I couldn't connect to the AI right now. Please try again.", false);
-        });
+    function sendCoachQuestion(q) {
+      addCoachMessage(q, true);
+      callAI([
+        { role: "system", content: "You are a friendly prompt-engineering coach. Be clear and human." },
+        { role: "user", content: q }
+      ]).then(function (a) { addCoachMessage(a, false); }).catch(function (e) { addCoachMessage(e.message, false); });
     }
-
     function sendCoachInput() {
-      var input = document.getElementById("coach-input");
-      var q = input.value.trim();
-      if(!q) return;
-      input.value = "";
+      var i = document.getElementById("coach-input");
+      var q = i.value.trim();
+      if (!q) return;
+      i.value = "";
       sendCoachQuestion(q);
     }
-
-    document.getElementById("coach-input").addEventListener("keydown", function(e) {
-      if(e.key === "Enter") { e.preventDefault(); sendCoachInput(); }
+    document.getElementById("coach-input").addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); sendCoachInput(); }
     });
 
-    document.addEventListener("keydown", function(e) {
-      if(e.key === "Escape") closeCoach();
-    });
-
-    /* ---------- APPS DROPDOWN CLOSE ON CLICK OUTSIDE ---------- */
-    document.addEventListener("click", function(e) {
-      var dropdown = document.querySelector("[onclick*='toggleAppsDropdown']");
-      var panel = document.getElementById("apps-dropdown-panel");
-      if(dropdown && !dropdown.contains(e.target) && !panel.contains(e.target) && !panel.classList.contains("hidden")) {
-        panel.classList.add("hidden");
-        document.getElementById("apps-chevron").classList.remove("rotate-180");
-      }
-    });
-
+    updateWizardUI();
+    document.querySelector('[data-nav="home"]').classList.add("active");
   </script>
 </body>
 </html>
