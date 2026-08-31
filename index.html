@@ -551,29 +551,28 @@
     }
 
     /* ---------- AI CALL (UPDATED TEMP TO 0.9) ---------- */
-    function callAI(messages, extra) {
-      var key = getKey();
-      if (!key) {
-        openSettings();
-        return Promise.reject(new Error("Connect your OpenAI key first."));
-      }
-      // UPDATED TEMPERATURE FOR MAX CREATIVITY
-      var body = { model: "gpt-4o-mini", temperature: 0.9, messages: messages };
-      if (extra) Object.keys(extra).forEach(function (k) { body[k] = extra[k]; });
-      return fetch("https://api.openai.com/v1/chat/completions", {
+      function callAI(messages, extra) {
+      return fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + key },
-        body: JSON.stringify(body)
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages: messages, extra: extra || null })
       }).then(function (res) {
-        if (res.status === 401) { openSettings(); throw new Error("Your key was rejected. Check it and save again."); }
-        if (!res.ok) return res.text().then(function (t) { throw new Error("AI error " + res.status + ": " + t.slice(0, 160)); });
-        return res.json();
-      }).then(function (data) {
-        if (!data.choices || !data.choices[0]) throw new Error("Empty response from AI.");
-        return data.choices[0].message.content;
+        return res.json().then(function (data) {
+          if (!res.ok) {
+            throw new Error(data.error || ("Server error " + res.status));
+          }
+          if (!data.content) {
+            throw new Error("Empty response from AI.");
+          }
+          return data.content;
+        });
+      }).catch(function (err) {
+        if (err.message && err.message.toLowerCase().indexOf("failed to fetch") !== -1) {
+          throw new Error("Could not reach the PromptForge server. Refresh and try again.");
+        }
+        throw err;
       });
     }
-
     function setLoading(btn, on, busyText, doneText) {
       if (!btn) return;
       if (on) { btn.disabled = true; btn.dataset.old = btn.textContent; btn.textContent = busyText; btn.classList.add("opacity-70", "cursor-not-allowed"); }
