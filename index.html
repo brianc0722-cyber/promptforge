@@ -334,15 +334,20 @@
       var stack = document.getElementById("tech-stack").value.trim();
       setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
       var user =
-        "Create exactly 3 prompt variants for " + selectedAI + ".\n" +
-        "Return ONLY JSON: {\"variants\":[{\"label\":\"Essential\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Comprehensive\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Structured\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}}]}\n" +
+        "Create THREE prompts for " + selectedAI + ". They must NOT share sentences.\n" +
+        "ESSENTIAL: 4-8 short sentences. Direct. No numbered lists. No headers.\n" +
+        "COMPREHENSIVE: much longer. Numbered requirements, audience, examples, edge cases. Do not copy Essential.\n" +
+        "STRUCTURED: labeled blocks only like [ROLE] [TASK] [CONSTRAINTS] [OUTPUT]. No intro paragraph. Do not copy the others.\n" +
+        "If two prompts look similar, rewrite them.\n" +
+        "Return ONLY JSON:\n" +
+        "{\"variants\":[{\"label\":\"Essential\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Comprehensive\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}},{\"label\":\"Structured\",\"target_ai\":\"" + selectedAI + "\",\"prompt_text\":\"...\",\"effectiveness\":{\"plain_language\":\"...\",\"technical_details\":[\"...\"]}}]}\n" +
         "Project: " + desc + "\nAudience: " + (audience || "n/a") + "\nGoal: " + (goal || "n/a") + "\nTech: " + (stack || "n/a");
       callAI(
         [
-          { role: "system", content: "Output valid JSON only. No markdown." },
+          { role: "system", content: "JSON only. The three prompt_text fields must be clearly different in length and layout." },
           { role: "user", content: user }
         ],
-        { response_format: { type: "json_object" }, temperature: 0.3 }
+        { response_format: { type: "json_object" }, temperature: 0.6 }
       ).then(function (content) {
         var parsed;
         try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
@@ -404,10 +409,13 @@
         if (p.classList.contains("bg-indigo-600")) issues.push(p.textContent);
       });
       setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
-      var user = "Improve this prompt. Issues: " + issues.join(", ") + "\nReturn ONLY JSON with variants Essential, Comprehensive, Structured as in the wizard schema.\nPrompt:\n" + promptText;
+      var user =
+        "Improve this prompt into THREE versions that must NOT share sentences. Issues: " + issues.join(", ") + "\n" +
+        "ESSENTIAL: short paragraph. COMPREHENSIVE: long numbered brief. STRUCTURED: [ROLE][TASK][CONSTRAINTS][OUTPUT] blocks only.\n" +
+        "Return ONLY JSON with variants Essential, Comprehensive, Structured.\nPrompt:\n" + promptText;
       callAI(
-        [{ role: "system", content: "JSON only." }, { role: "user", content: user }],
-        { response_format: { type: "json_object" }, temperature: 0.3 }
+        [{ role: "system", content: "JSON only. Three clearly different prompt_text values." }, { role: "user", content: user }],
+        { response_format: { type: "json_object" }, temperature: 0.6 }
       ).then(function (content) {
         var parsed;
         try { parsed = extractJSON(content); } catch (e) { parsed = { variants: threeFromText(content) }; }
@@ -479,7 +487,7 @@
     function sendCoachQuestion(q) {
       addCoachMessage(q, true);
       callAI([
-        { role: "system", content: "You are a friendly prompt-engineering coach. Be clear and human." },
+        { role: "system", content: "You are a friendly prompt-engineering coach. Be clear and human. Give a fresh answer each time; do not repeat a previous reply." },
         { role: "user", content: q }
       ]).then(function (a) { addCoachMessage(a, false); }).catch(function (e) { addCoachMessage(e.message, false); });
     }
