@@ -224,6 +224,7 @@
             <span class="mic-label">Microphone</span>
           </button>
         </div>
+        <p class="mt-2 text-sm text-slate-600">Paste a weak prompt. PromptForge rewrites it into three <strong>full instructions</strong> you can paste into ChatGPT, Claude, Gemini, or Copilot — not one-line slogans.</p>
         <textarea id="existing-prompt" class="mt-6 h-48 w-full rounded-2xl border bg-white p-4 font-mono text-sm" placeholder="Paste a prompt, or use the microphone."></textarea>
         <div class="mt-4 flex flex-wrap gap-2">
           <button type="button" onclick="togglePill(this)" class="issue-pill rounded-full border px-3 py-2 text-sm font-bold">Too vague</button>
@@ -403,7 +404,7 @@
     function fallbackEffectiveness(label) {
       if (label === "Comprehensive") {
         return {
-          plain_language: "This version adds audience, numbered requirements, and examples so the model has fewer gaps to invent. That usually makes answers more complete and consistent.",
+          plain_language: "This version adds audience, numbered requirements, examples, and edge cases so the model has fewer gaps to invent. That usually makes answers more complete and consistent.",
           technical_details: ["Names who the result is for", "Turns the job into a checklist", "Adds examples and edge cases", "Asks for a complete, reusable answer"]
         };
       }
@@ -414,8 +415,8 @@
         };
       }
       return {
-        plain_language: "This version is short on purpose. It names the job and the outcome so the model starts working immediately without extra ceremony.",
-        technical_details: ["States the job in plain language", "Avoids extra sections that dilute the task", "Fits a quick first pass", "Easy to copy into chat"]
+        plain_language: "This version is compact but complete: it still names a role, the job, who it is for, and how the answer should look — without extra sections.",
+        technical_details: ["States a role and task", "Names audience or goal", "Adds at least one constraint and output format", "Fits a first pass in chat"]
       };
     }
 
@@ -479,6 +480,61 @@
       return [pack("Essential", String(raw || "").trim(), null)];
     }
 
+    function isWeakPrompt(text, label) {
+      var t = String(text || "").trim();
+      if (!t) return true;
+      var sentences = t.split(/[.!?]+/).map(function (x) { return x.trim(); }).filter(Boolean);
+      var hasRole = /you are|act as|your role|\[role\]/i.test(t);
+      var slogan = /^(imagine|envision|conceive|picture|consider)\b/i.test(t) && t.length < 280;
+      if (slogan && !hasRole) return true;
+      if (label === "Essential") return t.length < 280 || sentences.length < 5 || !hasRole;
+      if (label === "Comprehensive") return t.length < 550 || sentences.length < 8;
+      if (label === "Structured") return t.length < 280 || (t.indexOf("[") === -1 && t.indexOf("ROLE") === -1);
+      return t.length < 280;
+    }
+
+    function variantsNeedExpand(list) {
+      if (!list || !list.length) return true;
+      return list.some(function (v, i) {
+        return isWeakPrompt(v && v.prompt_text, v && v.label || NAMES[i]);
+      });
+    }
+
+    function expandWeakVariants(list) {
+      var payload = (list || []).map(function (v, i) {
+        return { label: (v && v.label) || NAMES[i], prompt_text: (v && v.prompt_text) || "" };
+      });
+      var user =
+        "These drafts are TOO SHORT or are marketing slogans, not AI prompts. Rewrite each into a FULL prompt a user can paste into " + selectedAI + ".\n" +
+        "Each prompt_text MUST:\n" +
+        "- Instruct an AI (start with You are / Act as / [ROLE])\n" +
+        "- Keep the user's original intent\n" +
+        "- Include audience, constraints, and a required output format\n" +
+        "- Essential: at least 8 sentences or ~400 characters. Still a paragraph, not a slogan.\n" +
+        "- Comprehensive: at least 12 numbered requirements and 900+ characters.\n" +
+        "- Structured: [ROLE] [TASK] [AUDIENCE] [CONSTRAINTS] [OUTPUT] as one string, 500+ characters. Not nested JSON.\n" +
+        "- Do not share sentences across the three.\n" +
+        "- Include effectiveness.plain_language and technical_details.\n" +
+        "Return ONLY JSON {variants:[...]}.\nDrafts:\n" + JSON.stringify(payload);
+      return callAI(
+        [
+          { role: "system", content: "JSON only. Expand weak slogans into complete AI system prompts. prompt_text is a string." },
+          { role: "user", content: user }
+        ],
+        { response_format: { type: "json_object" }, temperature: 0.45 }
+      ).then(function (content) {
+        var parsed = null;
+        try { parsed = extractJSON(content); } catch (e) { parsed = null; }
+        var next = normalizeVariants(parsed, content);
+        return next.length ? next : list;
+      }).catch(function () { return list; });
+    }
+
+    function finalizeVariants(list) {
+      if (!variantsNeedExpand(list)) return Promise.resolve(list);
+      return expandWeakVariants(list);
+    }
+
     function cleanRefineText(text) {
       var s = String(text || "").trim();
       s = s.replace(/^```[\w]*\n?/, "").replace(/```$/, "").trim();
@@ -524,6 +580,26 @@
       document.getElementById("results-ai-label").textContent = "Optimized for " + selectedAI + ".";
     }
 
+    function promptContract() {
+      return (
+        "You are writing PROMPTS — instructions a human will paste into " + selectedAI + ".\n" +
+        "Do NOT write a product slogan, vision sentence, or app pitch.\n" +
+        "Do NOT start with Imagine / Envision / Conceive / Picture.\n" +
+        "Each prompt_text MUST:\n" +
+        "1) Assign a role (You are / Act as / [ROLE])\n" +
+        "2) State the task in concrete verbs\n" +
+        "3) Name the audience and success criteria\n" +
+        "4) List constraints (what to include, what to avoid, tone, stack if known)\n" +
+        "5) Lock an output format (sections, bullets, JSON, code, steps)\n" +
+        "6) Ask the model to ask clarifying questions only if a critical fact is missing, then still produce a first draft\n" +
+        "ESSENTIAL: 8–14 sentences, 400–900 characters. One dense paragraph or 2 short paragraphs. Still a full prompt.\n" +
+        "COMPREHENSIVE: 900–2500 characters. Numbered requirements, examples, edge cases, quality bar. Do not copy Essential.\n" +
+        "STRUCTURED: one STRING with [ROLE] [TASK] [AUDIENCE] [CONSTRAINTS] [OUTPUT] [QUALITY]. 500+ characters. Not a nested object.\n" +
+        "The three prompt_text values must not share sentences.\n" +
+        "Each variant needs effectiveness.plain_language and technical_details.\n"
+      );
+    }
+
     function generateFromWizard() {
       var desc = document.getElementById("project-description").value.trim();
       if (!desc) { showToast("Describe your project first."); return; }
@@ -532,24 +608,21 @@
       var stack = document.getElementById("tech-stack").value.trim();
       setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
       var user =
-        "Create THREE prompts for " + selectedAI + ". They must NOT share sentences.\n" +
-        "Each variant MUST include effectiveness.plain_language (2-4 sentences, beginner-friendly) and effectiveness.technical_details (array of 3 short technique names).\n" +
-        "prompt_text must be a STRING.\n" +
-        "ESSENTIAL: 4-8 short sentences. No lists. No headers.\n" +
-        "COMPREHENSIVE: long numbered brief. Do not copy Essential.\n" +
-        "STRUCTURED: one STRING with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a nested object.\n" +
+        promptContract() +
         "Return ONLY JSON with key variants.\n" +
         "Project: " + desc + "\nAudience: " + (audience || "n/a") + "\nGoal: " + (goal || "n/a") + "\nTech: " + (stack || "n/a");
       callAI(
         [
-          { role: "system", content: "JSON only. variants[].prompt_text is a string. variants[].effectiveness is required." },
+          { role: "system", content: "JSON only. variants[].prompt_text is a complete AI prompt string, never a one-line slogan." },
           { role: "user", content: user }
         ],
-        { response_format: { type: "json_object" }, temperature: 0.6 }
+        { response_format: { type: "json_object" }, temperature: 0.55 }
       ).then(function (content) {
         var parsed = null;
         try { parsed = extractJSON(content); } catch (e) { parsed = null; }
-        renderResults(normalizeVariants(parsed, content));
+        return finalizeVariants(normalizeVariants(parsed, content));
+      }).then(function (list) {
+        renderResults(list);
         showView("results");
         showToast("Prompts ready.");
       }).catch(function (err) {
@@ -594,18 +667,27 @@
       var current = el.textContent.trim();
       if (!current) { showToast("Nothing to refine yet."); return; }
       var style =
-        i === 0 ? "Keep Essential: 4-8 sentence paragraph. No lists, no [ROLE] headers, no JSON." :
-        i === 1 ? "Keep Comprehensive: long numbered requirements. Do not copy the Essential card. No JSON." :
-        "Keep Structured: plain text with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a JSON object.";
+        i === 0 ? "Keep Essential: 8–14 sentence AI prompt (You are…). No slogan. No JSON. 400+ characters." :
+        i === 1 ? "Keep Comprehensive: long numbered AI prompt. 900+ characters. No JSON." :
+        "Keep Structured: [ROLE] [TASK] [AUDIENCE] [CONSTRAINTS] [OUTPUT] as plain text. 500+ characters. Not JSON.";
       setLoading(btn, true, "Refining...", "Refine this version");
       callAI(
         [
-          { role: "system", content: "Return ONLY the rewritten prompt as plain text. No JSON. No markdown fences. No preamble." },
-          { role: "user", content: "Variant: " + NAMES[i] + "\n" + style + "\nOptimize for " + selectedAI + ".\nRewrite this prompt so it is stronger and clearly this variant only:\n\n" + current }
+          { role: "system", content: "Return ONLY a complete AI prompt as plain text. No JSON. No markdown fences. No Imagine/Envision slogans." },
+          { role: "user", content: "Variant: " + NAMES[i] + "\n" + style + "\nOptimize for " + selectedAI + ".\nRewrite into a stronger prompt the user can paste into that model:\n\n" + current }
         ],
-        { temperature: 0.8 }
+        { temperature: 0.7 }
       ).then(function (c) {
-        el.textContent = cleanRefineText(c);
+        var next = cleanRefineText(c);
+        if (isWeakPrompt(next, NAMES[i])) {
+          return callAI([
+            { role: "system", content: "Return only a longer complete AI prompt. Plain text." },
+            { role: "user", content: "This is still too short or slogan-like. Expand it. " + style + "\n\n" + next }
+          ], { temperature: 0.5 }).then(function (c2) { return cleanRefineText(c2); });
+        }
+        return next;
+      }).then(function (finalText) {
+        el.textContent = finalText;
         showToast("Refined " + NAMES[i]);
       }).catch(function (e) {
         alert("Refine failed: " + e.message);
@@ -627,18 +709,22 @@
       });
       setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
       var user =
-        "Improve this prompt into THREE versions that must NOT share sentences. Issues: " + issues.join(", ") + "\n" +
-        "Each variant needs effectiveness.plain_language and technical_details. prompt_text is a STRING.\n" +
-        "Essential short paragraph. Comprehensive numbered brief. Structured [ROLE] lines as one string.\n" +
-        "Prompt:\n" + promptText;
+        promptContract() +
+        "The user pasted a WEAK prompt. Rebuild it into three paste-ready AI prompts. Keep their intent; add missing role, audience, constraints, and output format.\n" +
+        "Pain points to fix: " + (issues.join(", ") || "too vague / too short") + "\n" +
+        "Original prompt:\n" + promptText + "\n" +
+        "Return ONLY JSON {variants:[...]}.";
       callAI(
-        [{ role: "system", content: "JSON only with a variants array. prompt_text must be strings. Include effectiveness." }, { role: "user", content: user }],
-        { response_format: { type: "json_object" }, temperature: 0.6 }
+        [{ role: "system", content: "JSON only. You write full AI prompts, never one-sentence pitches. prompt_text is a string. Include effectiveness." }, { role: "user", content: user }],
+        { response_format: { type: "json_object" }, temperature: 0.5 }
       ).then(function (content) {
         var parsed = null;
         try { parsed = extractJSON(content); } catch (e) { parsed = null; }
-        renderResults(normalizeVariants(parsed, content));
+        return finalizeVariants(normalizeVariants(parsed, content));
+      }).then(function (list) {
+        renderResults(list);
         showView("results");
+        showToast("Stronger prompts ready.");
       }).catch(function (e) { alert("Improvement failed: " + e.message); }).then(function () {
         setLoading(document.getElementById("improve-btn"), false, "", "Generate improved prompts");
       });
