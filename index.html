@@ -7,17 +7,22 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
   <script>
     tailwind.config = {
       theme: {
         extend: {
-          fontFamily: { sans: ["DM Sans", "sans-serif"], display: ["Manrope", "sans-serif"] }
+          fontFamily: {
+            sans: ["Inter", "system-ui", "sans-serif"],
+            display: ["Plus Jakarta Sans", "Inter", "sans-serif"]
+          }
         }
       }
     };
   </script>
   <style>
+    html { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+    body { font-feature-settings: "cv02", "cv03", "cv04", "cv11"; }
     .view { display: none; }
     .view.active { display: block; }
     .wizard-step { display: none; }
@@ -37,7 +42,7 @@
     .toast { transform: translate(-50%, 24px); opacity: 0; pointer-events: none; transition: .25s; }
     .toast.show { transform: translate(-50%, 0); opacity: 1; }
     .mic-btn {
-      display: inline-flex; align-items: center; gap: 0; height: 40px; padding: 0 10px;
+      display: inline-flex; align-items: center; height: 40px; padding: 0 10px;
       border: 1px solid #e2e8f0; border-radius: 12px; background: #fff; font-size: 13px; font-weight: 700;
       color: #334155; overflow: hidden; max-width: 40px;
       transition: max-width 0.35s ease, background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
@@ -182,7 +187,7 @@
             </div>
             <pre id="prompt-0" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
             <button id="refine-btn-0" type="button" onclick="refinePrompt(0)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
-            <div id="breakdown-0" class="mt-3 hidden rounded-2xl bg-indigo-50 p-4 text-sm"></div>
+            <div id="breakdown-0" class="mt-3 hidden rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm"></div>
           </article>
           <article class="rounded-3xl border bg-white p-6 shadow-sm">
             <div class="flex justify-between"><span class="text-xs font-extrabold text-violet-700">COMPREHENSIVE</span>
@@ -193,7 +198,7 @@
             </div>
             <pre id="prompt-1" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
             <button id="refine-btn-1" type="button" onclick="refinePrompt(1)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
-            <div id="breakdown-1" class="mt-3 hidden rounded-2xl bg-violet-50 p-4 text-sm"></div>
+            <div id="breakdown-1" class="mt-3 hidden rounded-2xl border border-violet-100 bg-violet-50 p-4 text-sm"></div>
           </article>
           <article class="rounded-3xl border bg-white p-6 shadow-sm">
             <div class="flex justify-between"><span class="text-xs font-extrabold text-sky-700">STRUCTURED</span>
@@ -204,7 +209,7 @@
             </div>
             <pre id="prompt-2" class="mt-4 max-h-64 overflow-auto whitespace-pre-wrap rounded-2xl bg-slate-50 p-4 font-mono text-sm">Your generated prompt will appear here.</pre>
             <button id="refine-btn-2" type="button" onclick="refinePrompt(2)" class="mt-3 rounded-xl bg-slate-900 px-4 py-2 text-sm font-bold text-white">Refine this version</button>
-            <div id="breakdown-2" class="mt-3 hidden rounded-2xl bg-sky-50 p-4 text-sm"></div>
+            <div id="breakdown-2" class="mt-3 hidden rounded-2xl border border-sky-100 bg-sky-50 p-4 text-sm"></div>
           </article>
         </div>
       </div>
@@ -395,32 +400,83 @@
       return String(v);
     }
 
-    function pack(label, text, eff) {
+    function fallbackEffectiveness(label) {
+      if (label === "Comprehensive") {
+        return {
+          plain_language: "This version adds audience, numbered requirements, and examples so the model has fewer gaps to invent. That usually makes answers more complete and consistent.",
+          technical_details: ["Names who the result is for", "Turns the job into a checklist", "Adds examples and edge cases", "Asks for a complete, reusable answer"]
+        };
+      }
+      if (label === "Structured") {
+        return {
+          plain_language: "This version uses labeled blocks (role, task, constraints, output) so the model can follow a checklist instead of guessing the format.",
+          technical_details: ["Pins a role for the AI", "Separates task from constraints", "Locks the output shape", "Easier to reuse in other tools"]
+        };
+      }
+      return {
+        plain_language: "This version is short on purpose. It names the job and the outcome so the model starts working immediately without extra ceremony.",
+        technical_details: ["States the job in plain language", "Avoids extra sections that dilute the task", "Fits a quick first pass", "Easy to copy into chat"]
+      };
+    }
+
+    function asDetailList(val) {
+      if (!val) return [];
+      if (Array.isArray(val)) {
+        return val.map(function (d) { return typeof d === "string" ? d : JSON.stringify(d); }).filter(Boolean);
+      }
+      if (typeof val === "string") return val.trim() ? [val.trim()] : [];
+      return [];
+    }
+
+    function pickEffectiveness(item, label) {
+      var fb = fallbackEffectiveness(label);
+      if (item == null) return fb;
+      if (typeof item === "string") {
+        var s = item.trim();
+        return s ? { plain_language: s, technical_details: fb.technical_details } : fb;
+      }
+      if (typeof item !== "object") return fb;
+      var eff = item.effectiveness || item.Effectiveness || item.why_it_works || item.whyItWorks || item.explanation || item.why || null;
+      var plain = "";
+      var details = [];
+      if (typeof eff === "string") {
+        plain = eff.trim();
+      } else if (eff && typeof eff === "object") {
+        plain = String(eff.plain_language || eff.plainLanguage || eff.summary || eff.why || eff.description || eff.text || "").trim();
+        details = asDetailList(eff.technical_details || eff.technicalDetails || eff.details || eff.techniques);
+      }
+      if (!plain) plain = String(item.plain_language || item.plainLanguage || item.why || "").trim();
+      if (!details.length) details = asDetailList(item.technical_details);
+      if (!plain) plain = fb.plain_language;
+      if (!details.length) details = fb.technical_details;
+      return { plain_language: plain, technical_details: details };
+    }
+
+    function pack(label, text, item) {
       return {
         label: label,
         target_ai: selectedAI,
         prompt_text: String(text || "").trim(),
-        effectiveness: eff && typeof eff === "object"
-          ? { plain_language: eff.plain_language || "", technical_details: eff.technical_details || [] }
-          : { plain_language: "", technical_details: [] }
+        effectiveness: pickEffectiveness(item, label)
       };
     }
 
     function normalizeVariants(parsed, raw) {
       if (parsed && Array.isArray(parsed.variants) && parsed.variants.length) {
         return parsed.variants.map(function (item, idx) {
-          return pack(item.label || NAMES[idx] || "Variant", variantText(item.prompt_text != null ? item.prompt_text : item), item.effectiveness);
+          var label = item.label || NAMES[idx] || "Variant";
+          return pack(label, variantText(item.prompt_text != null ? item.prompt_text : item), item);
         });
       }
       var out = [];
       if (parsed && typeof parsed === "object") {
         NAMES.forEach(function (name) {
           var v = parsed[name] || parsed[name.toLowerCase()];
-          if (v != null) out.push(pack(name, variantText(v), v && v.effectiveness));
+          if (v != null) out.push(pack(name, variantText(v), typeof v === "object" ? v : { effectiveness: v }));
         });
       }
       if (out.length) return out;
-      return [pack("Essential", String(raw || "").trim(), { plain_language: "Shown as one block because the model used an unexpected shape.", technical_details: [] })];
+      return [pack("Essential", String(raw || "").trim(), null)];
     }
 
     function cleanRefineText(text) {
@@ -477,15 +533,16 @@
       setLoading(document.getElementById("wizard-next"), true, "Generating...", "Generate prompts");
       var user =
         "Create THREE prompts for " + selectedAI + ". They must NOT share sentences.\n" +
-        "Use a variants array. Each item needs label, target_ai, prompt_text (a STRING), effectiveness.\n" +
-        "ESSENTIAL prompt_text: 4-8 short sentences. No lists. No headers.\n" +
-        "COMPREHENSIVE prompt_text: long numbered brief. Do not copy Essential.\n" +
-        "STRUCTURED prompt_text: a STRING with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a nested object.\n" +
+        "Each variant MUST include effectiveness.plain_language (2-4 sentences, beginner-friendly) and effectiveness.technical_details (array of 3 short technique names).\n" +
+        "prompt_text must be a STRING.\n" +
+        "ESSENTIAL: 4-8 short sentences. No lists. No headers.\n" +
+        "COMPREHENSIVE: long numbered brief. Do not copy Essential.\n" +
+        "STRUCTURED: one STRING with [ROLE] [TASK] [CONSTRAINTS] [OUTPUT] lines. Not a nested object.\n" +
         "Return ONLY JSON with key variants.\n" +
         "Project: " + desc + "\nAudience: " + (audience || "n/a") + "\nGoal: " + (goal || "n/a") + "\nTech: " + (stack || "n/a");
       callAI(
         [
-          { role: "system", content: "JSON only. variants[].prompt_text must be strings, not nested objects." },
+          { role: "system", content: "JSON only. variants[].prompt_text is a string. variants[].effectiveness is required." },
           { role: "user", content: user }
         ],
         { response_format: { type: "json_object" }, temperature: 0.6 }
@@ -507,14 +564,13 @@
         var card = variants[i];
         document.getElementById("prompt-" + i).textContent = card ? (card.prompt_text || "") : "";
         var box = document.getElementById("breakdown-" + i);
+        box.classList.add("hidden");
         if (!card) { box.innerHTML = ""; continue; }
-        var eff = card.effectiveness || {};
-        var html = "<p>" + esc(eff.plain_language || "") + "</p>";
-        if (eff.technical_details && eff.technical_details.length) {
-          html += "<ul class='mt-2 list-disc pl-5 text-xs'>";
-          eff.technical_details.forEach(function (d) { html += "<li>" + esc(d) + "</li>"; });
-          html += "</ul>";
-        }
+        var eff = pickEffectiveness(card, card.label || NAMES[i]);
+        var html = "<p class='font-medium text-slate-800 leading-relaxed'>" + esc(eff.plain_language) + "</p>";
+        html += "<details class='mt-3 text-xs text-slate-700'><summary class='cursor-pointer select-none font-bold text-indigo-700 hover:text-indigo-900'>Technical details</summary><ul class='mt-2 list-disc space-y-1 pl-5'>";
+        (eff.technical_details || []).forEach(function (d) { html += "<li>" + esc(d) + "</li>"; });
+        html += "</ul></details>";
         box.innerHTML = html;
       }
     }
@@ -522,7 +578,15 @@
       navigator.clipboard.writeText(document.getElementById("prompt-" + i).textContent).then(function () { showToast("Copied"); });
     }
     function toggleBreakdown(i) {
-      document.getElementById("breakdown-" + i).classList.toggle("hidden");
+      var box = document.getElementById("breakdown-" + i);
+      if (!box.innerHTML.trim()) {
+        var label = NAMES[i];
+        var eff = fallbackEffectiveness(label);
+        box.innerHTML = "<p class='font-medium text-slate-800 leading-relaxed'>" + esc(eff.plain_language) + "</p>" +
+          "<details class='mt-3 text-xs text-slate-700'><summary class='cursor-pointer font-bold text-indigo-700'>Technical details</summary><ul class='mt-2 list-disc space-y-1 pl-5'>" +
+          eff.technical_details.map(function (d) { return "<li>" + esc(d) + "</li>"; }).join("") + "</ul></details>";
+      }
+      box.classList.toggle("hidden");
     }
     function refinePrompt(i) {
       var btn = document.getElementById("refine-btn-" + i);
@@ -564,10 +628,11 @@
       setLoading(document.getElementById("improve-btn"), true, "Improving...", "Generate improved prompts");
       var user =
         "Improve this prompt into THREE versions that must NOT share sentences. Issues: " + issues.join(", ") + "\n" +
-        "Use variants[].prompt_text as STRINGS. Essential short paragraph. Comprehensive numbered brief. Structured [ROLE] lines as one string, not nested JSON.\n" +
+        "Each variant needs effectiveness.plain_language and technical_details. prompt_text is a STRING.\n" +
+        "Essential short paragraph. Comprehensive numbered brief. Structured [ROLE] lines as one string.\n" +
         "Prompt:\n" + promptText;
       callAI(
-        [{ role: "system", content: "JSON only with a variants array. prompt_text must be strings." }, { role: "user", content: user }],
+        [{ role: "system", content: "JSON only with a variants array. prompt_text must be strings. Include effectiveness." }, { role: "user", content: user }],
         { response_format: { type: "json_object" }, temperature: 0.6 }
       ).then(function (content) {
         var parsed = null;
